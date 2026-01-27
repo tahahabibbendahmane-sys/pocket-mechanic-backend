@@ -14,7 +14,7 @@ import { supabase } from '../lib/supabase';
 // ⚠️ BYPASS: Hardcoded for now until folder name is fixed
 // import { useUnits } from '../contexts/UnitContext'; 
 
-const SERVER_URL = 'http://127.0.0.1:3000/chat';
+const SERVER_URL = 'https://pocket-mechanic-brain.onrender.com/chat';
 
 // --- Types ---
 type Message = { id: string; role: 'user' | 'assistant'; content: string; };
