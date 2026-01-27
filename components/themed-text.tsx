@@ -15,12 +15,14 @@ export function ThemedText({
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const defaultColor = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const linkColor = useThemeColor({}, 'primaryDark');
+  const color = type === 'link' ? linkColor : defaultColor;
 
   return (
     <Text
       style={[
-        { color },
+        { color }, 
         type === 'default' ? styles.default : undefined,
         type === 'title' ? styles.title : undefined,
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
@@ -37,24 +39,28 @@ const styles = StyleSheet.create({
   default: {
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0,
   },
   defaultSemiBold: {
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: '600',
+    fontWeight: '700', // Increased from 600
+    letterSpacing: -0.2,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 28, // Reduced from 32 for better hierarchy
+    fontWeight: '900', // Black weight for heavy contrast
     lineHeight: 32,
+    letterSpacing: -0.8, // Tighter for modern look
   },
   subtitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '800', // Increased from bold
+    letterSpacing: -0.4,
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    fontWeight: '600',
   },
 });
