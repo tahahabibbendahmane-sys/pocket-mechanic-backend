@@ -7,21 +7,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useSidebarControls } from '../components/AppSidebar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Markdown from 'react-native-markdown-display';
 
 // 👇 FIX: Use "../" because 'lib' is just one folder up from 'app'
 import { supabase } from '../lib/supabase'; 
 
-// ⚠️ BYPASS: Hardcoded for now until folder name is fixed
-// import { useUnits } from '../contexts/UnitContext'; 
+import { useUnits } from '../contexts/UnitsContext';
 
 const SERVER_URL = 'https://pocket-mechanic-brain.onrender.com/chat';
 
 // --- Types ---
-type Message = { id: string; role: 'user' | 'assistant'; content: string; };
+type Message = { id: string; role: 'user' | 'assistant' | 'system'; content: string; };
 type Vehicle = { id: string; make: string; model: string; year: number; mileage: number; };
 
 export default function ChatbotScreen() {
-  const unitSystem = 'metric'; 
+  const { unitSystem } = useUnits();
   const { toggle } = useSidebarControls();
 
   // --- State ---
@@ -72,9 +72,10 @@ export default function ChatbotScreen() {
   );
 
   // --- 2. Send Message ---
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMessage = { id: Date.now().toString(), role: 'user', content: input };
+  const sendMessage = async (textOverride?: string) => {
+    const textToSend = textOverride ?? input;
+    if (!textToSend.trim()) return;
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: textToSend };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
@@ -88,6 +89,8 @@ export default function ChatbotScreen() {
 
     try {
       console.log('🚀 ATTEMPTING FETCH TO:', SERVER_URL);
+      console.log('Sending Units:', unitSystem);
+      console.log('🚀 SENDING TO SERVER:', { message: userMessage, units: unitSystem });
 
       // 1. Force the fetch
       const response = await fetch(SERVER_URL, {
@@ -98,7 +101,9 @@ export default function ChatbotScreen() {
         },
         body: JSON.stringify({ 
           message: userMessage.content,
-          vehicle: selectedCar || null
+          vehicle: selectedCar || null,
+          carContext: selectedCar || null,
+          units: unitSystem
         }),
       });
       // 2. Handle Network Errors
@@ -200,14 +205,17 @@ export default function ChatbotScreen() {
         onTouchStart={() => Keyboard.dismiss()} // Dismiss keyboard on scroll
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.role === 'user' ? styles.userBubble : styles.botBubble]}>
-            <Text
-              style={[
-                styles.text,
-                item.role === 'user' ? styles.userText : styles.botText,
-                item.id === 'loading-placeholder' && styles.thinkingText
-              ]}>
+            <Markdown
+              style={
+                item.role === 'user'
+                  ? { ...markdownStyles, body: { ...markdownStyles.body, color: '#FFFFFF' } }
+                  : item.id === 'loading-placeholder'
+                    ? { ...markdownStyles, body: { ...markdownStyles.body, color: '#777777', fontStyle: 'italic' } }
+                    : markdownStyles
+              }
+            >
               {item.content}
-            </Text>
+            </Markdown>
           </View>
         )}
         ListEmptyComponent={
@@ -295,3 +303,12 @@ const styles = StyleSheet.create({
   chip: { backgroundColor: 'white', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#eee', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   chipText: { color: '#2563EB', fontWeight: '500', fontSize: 14 }
 });
+
+const markdownStyles: any = {
+  body: { fontSize: 16, color: '#333333' },
+  heading1: { fontSize: 24, color: '#007AFF', fontWeight: 'bold', marginVertical: 10 },
+  heading2: { fontSize: 20, color: '#007AFF', fontWeight: '600', marginVertical: 8 },
+  strong: { fontWeight: '900', color: '#000000' },
+  code_inline: { backgroundColor: '#f4f4f4', padding: 4, borderRadius: 4, fontFamily: 'Courier' },
+  bullet_list: { marginVertical: 8 }
+};

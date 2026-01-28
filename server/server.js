@@ -11,12 +11,13 @@ app.use(express.json());
 // 2. CHAT ENDPOINT
 app.post('/chat', async (req, res) => {
   // 1. EXTRACT DATA
-  const { message, vehicle } = req.body;
+  const { message, vehicle, carContext, units } = req.body;
+  const selectedVehicle = carContext || vehicle;
 
   console.log('\n--------------------------------');
   console.log('📨 INCOMING:', message);
-  if (vehicle) {
-    console.log('🚗 VEHICLE:', `${vehicle.year} ${vehicle.make} ${vehicle.model}`);
+  if (selectedVehicle) {
+    console.log('🚗 VEHICLE:', `${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}`);
   }
 
   // Validation
@@ -32,15 +33,24 @@ app.post('/chat', async (req, res) => {
   }
 
   // 2. BUILD THE PERSONA
-  let systemPrompt = 'You are Wrenchy, an expert mechanic AI. Keep answers technical, concise, and formatted for mobile reading.';
+  // 1. Define the rules based on the user's choice
+  const isMetric = units === 'metric';
+  const unitRules = isMetric
+    ? 'STRICT METRIC MODE. - You must ONLY use Metric units: Kilometers (km), Liters (L), Celsius (°C), Newton-Meters (Nm), Bar/kPa. - DO NOT convert to Imperial. DO NOT mention miles, quarts, gallons, or ft-lbs. - If your internal data is in Imperial, mathematically convert it to Metric before speaking. - Example: Instead of "30 ft-lbs", say "40 Nm".'
+    : 'IMPERIAL MODE. - Use standard US units: Miles, Quarts, Fahrenheit, Foot-Pounds (ft-lbs).';
 
-  if (vehicle) {
-    systemPrompt += ` The user is working on a ${vehicle.year} ${vehicle.make} ${vehicle.model}`;
-    if (vehicle.engine) systemPrompt += ` with a ${vehicle.engine} engine`;
-    if (vehicle.trim) systemPrompt += ` (${vehicle.trim} trim)`;
-    systemPrompt += '. ALWAYS tailor your answer to this specific car\'s specs (torque, fluids, firing order).';
+  // 2. Inject it into the System Prompt
+  const systemPrompt = `You are Wrenchy, an expert automotive AI.
+
+*** CRITICAL INSTRUCTION ***
+${unitRules}
+
+Format your response with Markdown (bolding, lists). The user's car context is: ${carContext || 'General Car'}.`;
+
+  if (selectedVehicle) {
+    console.log('🚗 VEHICLE CONTEXT:', selectedVehicle);
   } else {
-    systemPrompt += ' The user has NOT selected a vehicle. If they ask for specs, ask them what car they are driving.';
+    console.log('🚗 VEHICLE CONTEXT: none');
   }
 
   try {
