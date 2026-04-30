@@ -2,29 +2,39 @@
   "expo": {
     "name": "pocket-mechanic",
     "slug": "pocket-mechanic",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pocketmechanic",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "ios": {
+      "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.energia.pocketmechanic",
-      "buildNumber": "2",
+      "buildNumber": "7",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Pocket Mechanic uses your location to detect when you finish a drive, so it can remind you to update your mileage.",
+        "NSLocationWhenInUseUsageDescription": "Pocket Mechanic uses your location to detect drives and remind you to update your mileage.",
+        "UIBackgroundModes": ["location"],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.444087067992-og9qic1c23aetvruae7ncpai834vbppj"
+            ]
+          }
+        ]
       }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundImage": "./assets/images/icon.png",
+        "monochromeImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -39,13 +49,32 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0567A6",
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      "expo-localization",
+      "@react-native-community/datetimepicker",
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Pocket Mechanic uses your location to detect when you finish a drive, so it can remind you to update your mileage.",
+          "locationWhenInUsePermission": "Pocket Mechanic uses your location to detect drives and remind you to update your mileage.",
+          "isIosBackgroundLocationEnabled": true
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0567A6",
+          "sounds": []
         }
       ]
     ],
@@ -54,10 +83,17 @@
       "reactCompiler": true
     },
     "extra": {
+      "deepseekApiKey": "YOUR_DEEPSEEK_API_KEY_HERE",
       "router": {},
       "eas": {
         "projectId": "bf7d4f82-a08f-427e-a4c5-22e8cb4a4e4d"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bf7d4f82-a08f-427e-a4c5-22e8cb4a4e4d"
     }
   }
 }

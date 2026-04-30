@@ -40,12 +40,21 @@ app.post('/chat', async (req, res) => {
     : 'IMPERIAL MODE. - Use standard US units: Miles, Quarts, Fahrenheit, Foot-Pounds (ft-lbs).';
 
   // 2. Inject it into the System Prompt
-  const systemPrompt = `You are Wrenchy, an expert automotive AI.
+  let systemPrompt = `You are Wrenchy, an expert automotive AI.
 
 *** CRITICAL INSTRUCTION ***
 ${unitRules}
 
-Format your response with Markdown (bolding, lists). The user's car context is: ${carContext || 'General Car'}.`;
+Format your response with Markdown (bolding, lists).`;
+
+  if (selectedVehicle?.year && selectedVehicle?.make && selectedVehicle?.model) {
+    systemPrompt += ` The user is currently asking about their ${selectedVehicle.year} ${selectedVehicle.make} ${selectedVehicle.model}. Assume all questions are about this vehicle unless specified otherwise. Do not ask for the make/model if it is already provided in this context.`;
+    if (selectedVehicle.trim || selectedVehicle.engine || selectedVehicle.mileage != null) {
+      systemPrompt += ` Vehicle details: ${selectedVehicle.trim ? `Trim: ${selectedVehicle.trim}. ` : ''}${selectedVehicle.engine ? `Engine: ${selectedVehicle.engine}. ` : ''}${selectedVehicle.mileage != null ? `Mileage: ${selectedVehicle.mileage}.` : ''}`.trim();
+    }
+  } else {
+    systemPrompt += ` The user's car context is: ${carContext || 'General Car'}.`;
+  }
 
   if (selectedVehicle) {
     console.log('🚗 VEHICLE CONTEXT:', selectedVehicle);

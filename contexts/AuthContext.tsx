@@ -6,6 +6,7 @@ interface UserProfile {
   id: string;
   name: string | null;
   email: string;
+  displayName: string;
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  refreshProfile: () => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -31,11 +33,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email')
+        .select('id, name, email, first_name, last_name, display_name')
         .eq('id', userId)
         .single();
 
       if (error) {
+        // JWT expired - refresh session once and retry
+        if (error.code === 'PGRST303') {
+          const {
+            data: { session },
+          } = await supabase.auth.refreshSession();
+          if (session) {
+            return fetchProfile(userId);
+          }
+          return;
+        }
+
         // Profile might not exist yet, create it
         if (error.code === 'PGRST116') {
           const { data: userData } = await supabase.auth.getUser();
@@ -51,10 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .single();
 
             if (!createError && newProfile) {
+              const email = newProfile.email || '';
+              const displayName =
+                (newProfile as any).display_name ||
+                (newProfile as any).first_name ||
+                (email ? email.split('@')[0] : '') ||
+                '';
               setProfile({
                 id: newProfile.id,
                 name: newProfile.name,
-                email: newProfile.email,
+                email,
+                displayName: displayName.trim() || '',
               });
             }
           }
@@ -65,10 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
+        const d = data as any;
+        const email = d.email || '';
+        const displayName =
+          (d.display_name || d.first_name || (email ? email.split('@')[0] : '') || '').trim() || '';
         setProfile({
           id: data.id,
           name: data.name,
-          email: data.email,
+          email,
+          displayName,
         });
       }
     } catch (error) {
@@ -76,10 +101,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await fetchProfile(session.user.id);
+    }
+  };
+
   // Initialize auth state on app startup
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        const expiresAt = session.expires_at ?? 0;
+        const now = Math.floor(Date.now() / 1000);
+        if (expiresAt - now < 60) {
+          const { data } = await supabase.auth.refreshSession();
+          if (data.session) {
+            session = data.session;
+          }
+        }
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -88,13 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
+      if (event === 'SIGNED_OUT') {
+        setProfile(null);
+      } else if (session?.user) {
         await fetchProfile(session.user.id);
       } else {
         setProfile(null);
@@ -167,6 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         profile,
         loading,
+        refreshProfile,
         signIn,
         signUp,
         signOut,

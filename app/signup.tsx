@@ -74,7 +74,7 @@ export default function SignUpScreen() {
         }
 
         // Redirect to main app
-        router.replace('/chatbot');
+        router.replace('/(tabs)');
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');

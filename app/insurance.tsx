@@ -1,25 +1,40 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Platform, View, Text } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Platform, View, Text, Image } from 'react-native';
+import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { formatDate, formatDateForInput, formatMileage } from '@/utils/formatting';
+import { formatDate, formatDateForInput, formatMileage, getUnitLabel } from '@/utils/formatting';
 import { useTheme } from '@/contexts/ThemeContext';
-import { AppHeader } from '@/components/AppHeader';
 import { BorderRadius, Spacing, Typography, ThemeColors, Shadows } from '@/constants/theme-enhanced';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { supabase } from '@/lib/supabase';
 import { Vehicle } from '@/types/vehicle';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUnits } from '@/contexts/UnitsContext';
+
+const uriToBlob = async (uri: string) => {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return blob;
+};
 
 export default function InsuranceScreen() {
   const { activeCar, isLoading, updateVehicle } = useActiveCar();
   const { theme, isDark } = useTheme();
   const { t } = useLanguage();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const { unitSystem } = useUnits();
   const router = useRouter();
   const colors = ThemeColors[theme];
   const tintColor = useThemeColor({}, 'tint');
@@ -34,7 +49,10 @@ export default function InsuranceScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [fetchedCar, setFetchedCar] = useState<Vehicle | null>(null);
+  const [documentImage, setDocumentImage] = useState<string | null>(null);
+  const isBusy = isSaving || isUploading;
 
   const displayCar = fetchedCar || activeCar;
 
@@ -119,6 +137,40 @@ export default function InsuranceScreen() {
 
     setIsSaving(true);
     try {
+      if (documentImage) {
+        setIsUploading(true);
+        const userId = user?.id || (await supabase.auth.getUser()).data.user?.id;
+        if (!userId) {
+          throw new Error('User not logged in');
+        }
+
+        const blob = await uriToBlob(documentImage);
+        const fileName = `${userId}/${Date.now()}.jpg`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(fileName, blob);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: publicData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(fileName);
+
+        const publicUrl = publicData?.publicUrl;
+        if (publicUrl) {
+          const { error: insertError } = await supabase
+            .from('documents')
+            .insert({ image_url: publicUrl });
+
+          if (insertError) {
+            throw insertError;
+          }
+        }
+      }
+
       const insurance = insuranceProvider.trim() || insurancePolicyNumber.trim() || insuranceExpiryDate.trim()
         ? {
             provider: insuranceProvider.trim() || '',
@@ -142,6 +194,7 @@ export default function InsuranceScreen() {
     } catch (error) {
       console.error('Error saving insurance/registration:', error);
     } finally {
+      setIsUploading(false);
       setIsSaving(false);
     }
   };
@@ -154,7 +207,20 @@ export default function InsuranceScreen() {
       setInsuranceExpiryDate(displayCar.insurance?.expiryDate ? formatDateForInput(displayCar.insurance.expiryDate) : '');
       setRegistrationExpiryDate(displayCar.registration?.expiryDate ? formatDateForInput(displayCar.registration.expiryDate) : '');
     }
+    setDocumentImage(null);
     setIsEditing(false);
+  };
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      setDocumentImage(result.assets[0].uri);
+    }
   };
 
   const hasInsuranceData = displayCar?.insurance?.provider || displayCar?.insurance?.policyNumber || displayCar?.insurance?.expiryDate;
@@ -162,7 +228,7 @@ export default function InsuranceScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#F2F2F7' }]}>
         <ThemedView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
         </ThemedView>
@@ -173,8 +239,21 @@ export default function InsuranceScreen() {
   if (!displayCar) {
     return (
       <ThemedView style={styles.container}>
-        <ThemedView style={styles.header}>
-          <AppHeader title={t.insurance.title} />
+        <ThemedView style={[styles.header, { paddingTop: insets.top }]}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+              style={styles.headerIconButton}
+            >
+              <Ionicons name="menu-outline" size={24} color="#333" />
+            </TouchableOpacity>
+            <ThemedText type="title" style={styles.headerTitle}>
+              {t.insurance.title}
+            </ThemedText>
+            <TouchableOpacity style={styles.headerIconButton} disabled>
+              <Ionicons name="add" size={30} color={colors.primary || '#2962FF'} />
+            </TouchableOpacity>
+          </View>
         </ThemedView>
         <ThemedView style={styles.emptyContainer}>
           <ThemedView style={[
@@ -219,14 +298,14 @@ export default function InsuranceScreen() {
                 Shadows.md
               ]}
               activeOpacity={1}
-              onPress={() => router.push('/garage')}>
+              onPress={() => router.push('/(tabs)/garage')}>
               <ThemedView style={[
                 styles.emptyCTAContent,
                 { backgroundColor: colors.primaryDark || '#4F46E5' }
               ]}>
                 <IconSymbol name="car.fill" size={18} color="#FFFFFF" />
                 <ThemedText style={[styles.emptyCTAText, { color: '#FFFFFF', fontWeight: '700' }]}>
-                  Select a Vehicle
+                  <Text>Select a Vehicle</Text>
                 </ThemedText>
               </ThemedView>
             </AnimatedButton>
@@ -237,60 +316,94 @@ export default function InsuranceScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <AppHeader title={t.insurance.title} />
-        <ThemedView style={styles.carInfo}>
-          <ThemedText type="title">{displayCar.make} {displayCar.model}</ThemedText>
-          <ThemedText style={styles.carDetails}>
-            {`${displayCar.year} • ${formatMileage(displayCar.mileage)} miles`}
-          </ThemedText>
-        </ThemedView>
-        {!isEditing ? (
+    <ThemedView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#F2F2F7' }]}>
+      <ThemedView style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerRow}>
           <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: tintColor }]}
-            onPress={() => setIsEditing(true)}>
-            <IconSymbol name="pencil" size={16} color={textInverse} />
-            <ThemedText style={[styles.editButtonText, { color: textInverse }]}>{t.common.edit}</ThemedText>
+            onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+            style={styles.headerIconButton}
+          >
+            <Ionicons name="menu-outline" size={24} color="#333" />
           </TouchableOpacity>
-        ) : (
+          <ThemedText type="title" style={styles.headerTitle}>
+            {t.insurance.title}
+          </ThemedText>
+          <TouchableOpacity
+            onPress={() => setIsEditing(true)}
+            style={styles.headerIconButton}>
+            <Ionicons name="add" size={30} color={colors.primary || '#2962FF'} />
+          </TouchableOpacity>
+        </View>
+        <ThemedView style={styles.carInfo}>
+          <View style={[styles.carCapsule, { backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
+            <Text style={[styles.carCapsuleText, { color: isDark ? '#FFFFFF' : '#555' }]}>
+              {displayCar.make} {displayCar.model} • {displayCar.year} • {formatMileage(displayCar.mileage, unitSystem)} {getUnitLabel(unitSystem)}
+            </Text>
+          </View>
+        </ThemedView>
+        {isEditing && (
           <ThemedView style={styles.editActions}>
             <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-              disabled={isSaving}>
-              <ThemedText style={[styles.cancelButtonText, { color: primaryDark }]}>{t.common.cancel}</ThemedText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveButton, { backgroundColor: tintColor }, isSaving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={isSaving}>
-              {isSaving ? (
-                <ActivityIndicator size="small" color={textInverse} />
+              style={styles.uploadBox}
+              onPress={pickImage}
+              activeOpacity={0.8}
+            >
+              {!documentImage ? (
+                <View style={styles.uploadPlaceholder}>
+                  <Ionicons name="camera" size={28} color="#999" />
+                  <Text style={styles.uploadText}>Tap to upload photo</Text>
+                </View>
               ) : (
-                <ThemedText style={[styles.saveButtonText, { color: textInverse }]}>{t.common.save}</ThemedText>
+                <View>
+                  <Image source={{ uri: documentImage }} style={styles.uploadImage} />
+                  <TouchableOpacity
+                    style={styles.removeImageButton}
+                    onPress={() => setDocumentImage(null)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
               )}
             </TouchableOpacity>
+
+            <View style={styles.editActionRow}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}
+              disabled={isBusy}>
+                <ThemedText style={[styles.cancelButtonText, { color: primaryDark }]}>{t.common.cancel}</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: tintColor }, isBusy && styles.saveButtonDisabled]}
+                onPress={handleSave}
+              disabled={isBusy}>
+              {isBusy ? (
+                  <ActivityIndicator size="small" color={textInverse} />
+                ) : (
+                  <ThemedText style={[styles.saveButtonText, { color: textInverse }]}>{t.common.save}</ThemedText>
+                )}
+              </TouchableOpacity>
+            </View>
           </ThemedView>
         )}
       </ThemedView>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Insurance Section */}
-        <ThemedView style={styles.section}>
+        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             {t.insurance.title}
           </ThemedText>
 
           {!hasInsuranceData && !isEditing ? (
-            <ThemedView style={[styles.emptySection, { borderColor: tintColor + '30', backgroundColor: colors.backgroundSecondary }]}>
-              <ThemedView style={[styles.emptyIconContainer, { backgroundColor: tintColor + '20' }]}>
-                <IconSymbol name="doc.text.fill" size={32} color={tintColor} />
+            <ThemedView style={[styles.emptySection, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }, Shadows.sm]}>
+              <ThemedView style={styles.iconBubble}>
+                <IconSymbol name="doc.text.fill" size={32} color={colors.primary || '#2962FF'} />
               </ThemedView>
-              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: textColor }]}>
+              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: isDark ? '#A1A1A1' : '#666666' }]}>
                 {t.insurance.noInsuranceInfo}
               </ThemedText>
-              <ThemedText style={[styles.emptySectionSubtext, { color: textSecondary }]}>
+              <ThemedText style={[styles.emptySectionSubtext, { color: isDark ? '#A1A1A1' : '#666666' }]}>
                 {t.insurance.noInsuranceMessage}
               </ThemedText>
             </ThemedView>
@@ -311,7 +424,7 @@ export default function InsuranceScreen() {
                   />
                 ) : (
                   <ThemedText style={styles.value}>
-                    {activeCar.insurance?.provider || t.insurance.notSet}
+                    {displayCar?.insurance?.provider || t.insurance.notSet}
                   </ThemedText>
                 )}
               </ThemedView>
@@ -331,7 +444,7 @@ export default function InsuranceScreen() {
                   />
                 ) : (
                   <ThemedText style={styles.value}>
-                    {activeCar.insurance?.policyNumber || t.insurance.notSet}
+                    {displayCar?.insurance?.policyNumber || t.insurance.notSet}
                   </ThemedText>
                 )}
               </ThemedView>
@@ -351,12 +464,12 @@ export default function InsuranceScreen() {
                       editable={!isSaving}
                     />
                     <ThemedText style={styles.hint}>
-                      Format: YYYY-MM-DD (e.g., 2026-12-31)
+                      <Text>Format: YYYY-MM-DD (e.g., 2026-12-31)</Text>
                     </ThemedText>
                   </>
                 ) : (
                   <ThemedText style={styles.value}>
-                    {activeCar.insurance?.expiryDate ? formatDate(activeCar.insurance.expiryDate) : t.insurance.notSet}
+                    {displayCar?.insurance?.expiryDate ? formatDate(displayCar.insurance.expiryDate) : t.insurance.notSet}
                   </ThemedText>
                 )}
               </ThemedView>
@@ -365,20 +478,20 @@ export default function InsuranceScreen() {
         </ThemedView>
 
         {/* Registration Section */}
-        <ThemedView style={styles.section}>
+        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             {t.insurance.registration}
           </ThemedText>
 
           {!hasRegistrationData && !isEditing ? (
-            <ThemedView style={[styles.emptySection, { borderColor: tintColor + '30', backgroundColor: colors.backgroundSecondary }]}>
-              <ThemedView style={[styles.emptyIconContainer, { backgroundColor: tintColor + '20' }]}>
-                <IconSymbol name="doc.text.fill" size={32} color={tintColor} />
+            <ThemedView style={[styles.emptySection, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }, Shadows.sm]}>
+              <ThemedView style={styles.iconBubble}>
+                <IconSymbol name="calendar" size={32} color={colors.primary || '#2962FF'} />
               </ThemedView>
-              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: textColor }]}>
+              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: isDark ? '#A1A1A1' : '#666666' }]}>
                 {t.insurance.noRegistrationInfo}
               </ThemedText>
-              <ThemedText style={[styles.emptySectionSubtext, { color: textSecondary }]}>
+              <ThemedText style={[styles.emptySectionSubtext, { color: isDark ? '#A1A1A1' : '#666666' }]}>
                 {t.insurance.noRegistrationMessage}
               </ThemedText>
             </ThemedView>
@@ -404,7 +517,7 @@ export default function InsuranceScreen() {
                   </>
                 ) : (
                   <ThemedText style={styles.value}>
-                    {activeCar.registration?.expiryDate ? formatDate(activeCar.registration.expiryDate) : t.insurance.notSet}
+                    {displayCar?.registration?.expiryDate ? formatDate(displayCar.registration.expiryDate) : t.insurance.notSet}
                   </ThemedText>
                 )}
               </ThemedView>
@@ -419,6 +532,7 @@ export default function InsuranceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   loadingContainer: {
     flex: 1,
@@ -426,18 +540,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#333',
+    flex: 1,
+  },
+  headerIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
   },
   carInfo: {
     marginBottom: 16,
   },
-  carDetails: {
-    marginTop: 4,
+  carCapsule: {
+    backgroundColor: '#E5E5EA',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  carCapsuleText: {
     fontSize: 14,
-    opacity: 0.7,
+    fontWeight: '600',
+    color: '#555',
   },
   editButton: {
     flexDirection: 'row',
@@ -455,6 +601,47 @@ const styles = StyleSheet.create({
   editActions: {
     flexDirection: 'row',
     gap: 12,
+    alignItems: 'center',
+  },
+  editActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  uploadBox: {
+    width: '100%',
+    borderStyle: 'dashed',
+    borderWidth: 1,
+    borderColor: '#CCC',
+    borderRadius: 12,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  uploadPlaceholder: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  uploadText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  uploadImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   cancelButton: {
@@ -542,6 +729,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
   },
+  iconBubble: {
+    backgroundColor: '#F4F2FF',
+    padding: 16,
+    borderRadius: 40,
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
   content: {
     flex: 1,
   },
@@ -552,16 +746,30 @@ const styles = StyleSheet.create({
   section: {
     gap: 16,
   },
+  sectionCard: {
+    padding: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
   sectionTitle: {
     fontSize: 20,
     marginBottom: 4,
   },
   emptySection: {
     alignItems: 'center',
-    padding: Spacing.xl,
-    borderRadius: BorderRadius['2xl'],
-    borderWidth: 2,
-    borderStyle: 'dashed',
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: '#FFF',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   emptySectionText: {
     marginTop: Spacing.md,

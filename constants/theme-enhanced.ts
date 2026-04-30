@@ -7,10 +7,10 @@
 export const ThemeColors = {
   light: {
     // Primary accent - Electric Indigo (punchy, modern)
-    primary: '#6366F1', // Electric Indigo
-    primaryBlue: '#6366F1',
-    primaryDark: '#4F46E5', // Deeper indigo for pressed states
-    primaryLight: '#EEF2FF', // Very light indigo tint
+    primary: '#0567A6',
+    primaryBlue: '#0567A6',
+    primaryDark: '#044E80',
+    primaryLight: '#E8F4FF',
     
     // Backgrounds - Off-white base
     background: '#F5F5F7', // Off-white (Apple-style)
@@ -26,7 +26,7 @@ export const ThemeColors = {
     
     // UI elements
     icon: '#64748B',
-    tint: '#6366F1', // Electric Indigo for buttons/links
+    tint: '#0567A6', // Primary accent for buttons/links
     
     // Borders and dividers - Subtle
     border: '#E2E8F0', // Very light border
@@ -49,17 +49,17 @@ export const ThemeColors = {
     cardActive: '#EEF2FF', // Very light indigo tint
     
     // Colored shadows (soft glow)
-    shadow: 'rgba(99, 102, 241, 0.08)', // Indigo glow
-    shadowStrong: 'rgba(99, 102, 241, 0.15)',
+    shadow: 'rgba(5, 103, 166, 0.08)',
+    shadowStrong: 'rgba(5, 103, 166, 0.15)',
     shadowOverdue: 'rgba(239, 68, 68, 0.1)',
     shadowDueSoon: 'rgba(245, 158, 11, 0.1)',
   },
   dark: {
     // Primary accent - Slightly brighter for dark mode
-    primary: '#818CF8', // Lighter indigo for dark mode
-    primaryBlue: '#818CF8',
-    primaryDark: '#6366F1',
-    primaryLight: '#312E81', // Dark indigo background
+    primary: '#0567A6',
+    primaryBlue: '#0567A6',
+    primaryDark: '#044E80',
+    primaryLight: '#14245E', // Dark blue background
     
     // Backgrounds - Slate-900 base (high contrast)
     background: '#0F172A', // Slate-900
@@ -75,7 +75,7 @@ export const ThemeColors = {
     
     // UI elements
     icon: '#94A3B8',
-    tint: '#818CF8', // Lighter indigo for dark mode
+    tint: '#0567A6', // Primary accent for dark mode
     
     // Borders and dividers
     border: '#334155', // Slate-700
@@ -98,8 +98,8 @@ export const ThemeColors = {
     cardActive: '#1E1B4B', // Dark indigo tint
     
     // Colored shadows (glow effect in dark mode)
-    shadow: 'rgba(129, 140, 248, 0.2)', // Brighter indigo glow
-    shadowStrong: 'rgba(129, 140, 248, 0.3)',
+    shadow: 'rgba(5, 103, 166, 0.2)',
+    shadowStrong: 'rgba(5, 103, 166, 0.3)',
     shadowOverdue: 'rgba(248, 113, 113, 0.2)',
     shadowDueSoon: 'rgba(251, 191, 36, 0.2)',
   },

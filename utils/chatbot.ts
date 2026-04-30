@@ -217,9 +217,10 @@ export async function callLLMAPI(
     const contextCar = activeCar || {
       make: 'General',
       model: 'Vehicle',
-      year: new Date().getFullYear(), // Use current year instead of 'N/A'
-      mileage: 0, // Ensure it's a number, not a string
-      services: [],
+      year: new Date().getFullYear(),
+      engine: '',
+      mileage: 0,
+      services: [] as { type: string; mileageDone: number; intervalMiles: number }[],
     };
 
     // Transform vehicle data to match backend format

@@ -1,26 +1,50 @@
-import { useState } from 'react';
-import { StyleSheet, TextInput, Alert, KeyboardAvoidingView, Platform, ScrollView, View, Text } from 'react-native';
+import { useState, useRef } from 'react';
+import {
+  StyleSheet,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  StatusBar,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { useTheme } from '@/contexts/ThemeContext';
-import { ThemeColors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme-enhanced';
-import { AnimatedButton } from '@/components/AnimatedButton';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { signInWithGoogle, signInWithApple } from '@/lib/auth';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { useLanguage } from '@/contexts/LanguageContext';
+
+const BG = '#0D0D0D';
+const SURFACE = '#1A1A1A';
+const BORDER = '#2A2A2A';
+const BLUE = '#0567A6';
+const WHITE = '#FFFFFF';
+const MUTED = '#888888';
+const PLACEHOLDER = '#555555';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { theme, isDark } = useTheme();
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const router = useRouter();
-  const colors = ThemeColors[theme];
+  const insets = useSafeAreaInsets();
+  const passwordRef = useRef<TextInput>(null);
+  const { t } = useLanguage();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      setError('Please enter both email and password');
+      setError(t.auth.errorBothFields);
       return;
     }
 
@@ -34,13 +58,12 @@ export default function LoginScreen() {
       });
 
       if (authError) {
-        setError(authError.message || 'Failed to sign in. Please check your credentials.');
+        setError(authError.message || t.auth.errorSignIn);
       } else {
-        // Redirect to main app
-        router.replace('/chatbot');
+        router.replace('/(tabs)');
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
+      setError(t.auth.errorUnexpected);
     } finally {
       setLoading(false);
     }
@@ -50,234 +73,308 @@ export default function LoginScreen() {
     router.push('/signup');
   };
 
-  const handleGuestMode = async () => {
-    setError(null);
-    setLoading(true);
+  const handleGuestLogin = () => {
+    router.replace('/(tabs)');
+  };
 
-    try {
-      const { error: authError } = await supabase.auth.signInAnonymously();
-
-      if (authError) {
-        Alert.alert('Guest mode is not enabled on the server.');
-      } else {
-        // The existing Auth Listener should automatically detect the new session and redirect
-        // No need to manually redirect here
-      }
-    } catch (err) {
-      Alert.alert('Guest mode is not enabled on the server.');
-    } finally {
-      setLoading(false);
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    const { data, error: googleError } = await signInWithGoogle();
+    if (googleError) {
+      Alert.alert('Sign-In Failed', (googleError as Error).message || 'Could not sign in with Google');
+    } else {
+      router.replace('/(tabs)');
     }
+    setGoogleLoading(false);
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
-        <ThemedView style={styles.content}>
-          <ThemedView style={styles.header}>
-            <IconSymbol name="wrench.and.screwdriver.fill" size={64} color={colors.primary} />
-            <ThemedText style={[styles.title, { color: colors.text }]}>
-              Pocket Mechanic
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Sign in to continue
-            </ThemedText>
-          </ThemedView>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={BG} />
 
-          <ThemedView style={styles.form}>
-            <ThemedView style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: colors.text }]}>Email</ThemedText>
+      {/* Radial glow */}
+      <LinearGradient
+        colors={['rgba(245, 166, 35, 0.08)', 'transparent']}
+        style={styles.glow}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
+
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 24 }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Logo + Branding */}
+          <View style={styles.brandSection}>
+            <View style={styles.logoBox}>
+              <Ionicons name="car-sport-outline" size={40} color={BLUE} />
+            </View>
+            <Text style={styles.appName}>{t.auth.appName}</Text>
+            <Text style={styles.tagline}>{t.auth.tagline}</Text>
+          </View>
+
+          {/* Form */}
+          <View style={styles.form}>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t.auth.email}</Text>
               <TextInput
                 style={[
                   styles.input,
-                  {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
-                    color: colors.text,
-                  },
+                  emailFocused && styles.inputFocused,
                 ]}
-                placeholder="Enter your email"
-                placeholderTextColor={colors.textSecondary}
+                placeholder={t.auth.emailPlaceholder}
+                placeholderTextColor={PLACEHOLDER}
                 value={email}
                 onChangeText={setEmail}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
                 editable={!loading}
               />
-            </ThemedView>
+            </View>
 
-            <ThemedView style={styles.inputContainer}>
-              <ThemedText style={[styles.label, { color: colors.text }]}>Password</ThemedText>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>{t.auth.password}</Text>
               <TextInput
+                ref={passwordRef}
                 style={[
                   styles.input,
-                  {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
-                    color: colors.text,
-                  },
+                  passwordFocused && styles.inputFocused,
                 ]}
-                placeholder="Enter your password"
-                placeholderTextColor={colors.textSecondary}
+                placeholder={t.auth.passwordPlaceholder}
+                placeholderTextColor={PLACEHOLDER}
                 value={password}
                 onChangeText={setPassword}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
                 secureTextEntry
                 autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
                 editable={!loading}
               />
-            </ThemedView>
+            </View>
 
             {error && (
-              <View style={[styles.errorContainer, { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2' }]}>
-                <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
-                  {error}
-                </Text>
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle" size={16} color="#FF6B6B" />
+                <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            <AnimatedButton
-              style={[styles.button, { backgroundColor: colors.primaryDark }, Shadows.md]}
+            <TouchableOpacity
+              style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
               onPress={handleLogin}
-              disabled={loading}>
-              <ThemedView style={styles.buttonContent}>
-                {loading ? (
-                  <View style={styles.loadingContainer}>
-                    <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Signing in...</Text>
-                  </View>
-                ) : (
-                  <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>
-                    Sign In
-                  </ThemedText>
-                )}
-              </ThemedView>
-            </AnimatedButton>
+              activeOpacity={0.85}
+              disabled={loading}
+            >
+              <Text style={styles.primaryBtnText}>
+                {loading ? t.auth.signingIn : t.auth.signIn}
+              </Text>
+            </TouchableOpacity>
 
-            <AnimatedButton
-              style={[styles.button, styles.secondaryButton, { borderColor: colors.primary }]}
+            <TouchableOpacity
+              style={styles.secondaryBtn}
               onPress={handleSignUp}
-              disabled={loading}>
-              <ThemedView style={styles.buttonContent}>
-                <ThemedText style={[styles.secondaryButtonText, { color: colors.primary }]}>
-                  Sign Up
-                </ThemedText>
-              </ThemedView>
-            </AnimatedButton>
+              activeOpacity={0.85}
+              disabled={loading}
+            >
+              <Text style={styles.secondaryBtnText}>{t.auth.signUp}</Text>
+            </TouchableOpacity>
 
-            <AnimatedButton
-              style={[styles.button, styles.guestButton]}
-              onPress={handleGuestMode}
-              disabled={loading}>
-              <ThemedView style={styles.buttonContent}>
-                <ThemedText style={[styles.guestButtonText, { color: colors.textSecondary }]}>
-                  Continue as Guest
-                </ThemedText>
-              </ThemedView>
-            </AnimatedButton>
-          </ThemedView>
-        </ThemedView>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            {Platform.select({ ios: true, default: false }) && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                cornerRadius={14}
+                style={{ width: '100%', height: 52, marginBottom: 12 }}
+                onPress={async () => {
+                  setLoading(true);
+                  const { data, error } = await signInWithApple();
+                  if (error) {
+                    Alert.alert('Sign-In Failed', (error as Error).message || 'Could not sign in with Apple');
+                  } else if (data) {
+                    router.replace('/(tabs)');
+                  }
+                  setLoading(false);
+                }}
+              />
+            )}
+
+            <TouchableOpacity
+              style={[styles.secondaryBtn, styles.googleBtn]}
+              onPress={handleGoogleSignIn}
+              activeOpacity={0.85}
+              disabled={loading || googleLoading}
+            >
+              {googleLoading ? (
+                <ActivityIndicator color="#000000" />
+              ) : (
+                <Text style={styles.secondaryBtnText}>Continue with Google</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.guestLink}
+              onPress={handleGuestLogin}
+              activeOpacity={0.7}
+              disabled={loading}
+            >
+              <Text style={styles.guestLinkText}>{t.auth.continueAsGuest}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: BG,
+  },
+  flex: {
+    flex: 1,
+  },
+  glow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 400,
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
-  content: {
-    padding: Spacing.xl,
-    maxWidth: 400,
+
+  // Branding
+  brandSection: {
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+  logoBox: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: SURFACE,
+    borderWidth: 1,
+    borderColor: BORDER,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  appName: {
+    color: WHITE,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  tagline: {
+    color: MUTED,
+    fontSize: 14,
+    fontWeight: '400',
+  },
+
+  // Form
+  form: {
     width: '100%',
+    maxWidth: 400,
     alignSelf: 'center',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: Spacing.xxl,
-  },
-  title: {
-    fontSize: Typography.fontSize['3xl'],
-    fontWeight: '900',
-    marginTop: Spacing.md,
-    marginBottom: Spacing.xs,
-  },
-  subtitle: {
-    fontSize: Typography.fontSize.base,
-    opacity: 0.7,
-  },
-  form: {
-    gap: Spacing.lg,
-  },
-  inputContainer: {
-    gap: Spacing.sm,
+  fieldGroup: {
+    marginBottom: 20,
   },
   label: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
+    color: MUTED,
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 6,
   },
   input: {
+    backgroundColor: SURFACE,
     borderWidth: 1,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
-    fontSize: Typography.fontSize.base,
-    minHeight: 48,
+    borderColor: BORDER,
+    borderRadius: 12,
+    height: 52,
+    paddingHorizontal: 16,
+    color: WHITE,
+    fontSize: 15,
   },
-  button: {
-    borderRadius: BorderRadius['2xl'],
-    overflow: 'hidden',
-    marginTop: Spacing.md,
+  inputFocused: {
+    borderColor: BLUE,
   },
-  buttonContent: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.lg,
-    alignItems: 'center',
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  buttonText: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: '700',
-  },
-  errorContainer: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.xl,
-    marginBottom: Spacing.sm,
-  },
-  errorText: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  loadingContainer: {
+
+  // Error
+  errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
   },
-  secondaryButton: {
-    borderWidth: 2,
-    backgroundColor: 'transparent',
-    marginTop: Spacing.sm,
-  },
-  secondaryButtonText: {
-    fontSize: Typography.fontSize.base,
-    fontWeight: '700',
-  },
-  guestButton: {
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-    marginTop: Spacing.xs,
-  },
-  guestButtonText: {
-    fontSize: Typography.fontSize.sm,
+  errorText: {
+    color: '#FF6B6B',
+    fontSize: 13,
     fontWeight: '500',
-    opacity: 0.7,
+    flex: 1,
+  },
+
+  // Buttons
+  primaryBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: BLUE,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  primaryBtnText: {
+    color: BG,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryBtn: {
+    width: '100%',
+    height: 52,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: BORDER,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  secondaryBtnText: {
+    color: WHITE,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  googleBtn: {
+    marginTop: 12,
+  },
+  guestLink: {
+    marginTop: 16,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  guestLinkText: {
+    color: MUTED,
+    fontSize: 13,
   },
 });

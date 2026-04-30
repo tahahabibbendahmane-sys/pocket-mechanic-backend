@@ -31,6 +31,6 @@ export const DesignSystem = {
 
   // Primary color (blue)
   colors: {
-    primary: '#1CB0F6',
+    primary: '#0567A6',
   },
 };

@@ -5,7 +5,8 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { Spacing, BorderRadius } from '@/constants/theme-enhanced';
-import { useSidebarControls } from '@/components/AppSidebar';
+import { useNavigation } from 'expo-router';
+import { DrawerActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AppHeaderProps = {
@@ -14,7 +15,7 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ title, right }: AppHeaderProps) {
-  const { toggle } = useSidebarControls();
+  const navigation = useNavigation();
   const iconColor = useThemeColor({}, 'icon');
   const surface = useThemeColor({}, 'surface');
   const insets = useSafeAreaInsets();
@@ -32,7 +33,7 @@ export function AppHeader({ title, right }: AppHeaderProps) {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="Open menu"
-          onPress={toggle}
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
           style={[styles.menuButton, { backgroundColor: surface }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <IconSymbol name="line.3.horizontal" size={20} color={iconColor} />
