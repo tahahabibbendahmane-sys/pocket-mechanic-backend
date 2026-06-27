@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/contexts/ThemeContext';
+import { COLORS } from '@/constants/DesignSystem';
 import {
   getDocuments,
   uploadDocument,
@@ -29,13 +29,12 @@ const DOC_TYPES = [
 
 export default function DocumentsScreen() {
   const router = useRouter();
-  const { isDark } = useTheme();
 
-  const bg = isDark ? '#0D0D0D' : '#F2F2F7';
-  const card = isDark ? '#1A1A1A' : '#FFFFFF';
-  const border = isDark ? '#2A2A2A' : '#E5E5E5';
-  const textPrimary = isDark ? '#FFFFFF' : '#1A1A1A';
-  const textSecondary = isDark ? '#888888' : '#666666';
+  const bg = COLORS.surface;
+  const card = COLORS.card;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textSecondary = COLORS.textMuted;
 
   const [userId, setUserId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<StoredDocument[]>([]);
@@ -96,7 +95,7 @@ export default function DocumentsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: bg }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       {/* Header */}
       <View
@@ -213,7 +212,7 @@ export default function DocumentsScreen() {
                         width: '100%',
                         height: 140,
                         borderRadius: 10,
-                        backgroundColor: isDark ? '#2A2A2A' : '#F0F0F0',
+                        backgroundColor: COLORS.surface,
                       }}
                       resizeMode="cover"
                     />

@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
+import { isElectricVehicle } from './evDetection';
+
 const wrenchyMessages = {
   oil_warning: (vehicleName: string) => [
     {
@@ -147,6 +149,11 @@ export const scheduleWrenchyMileageAlerts = async (
     brake: number;
   }
 ) => {
+  const isEV = isElectricVehicle(
+    vehicle.make ?? '',
+    vehicle.model ?? ''
+  );
+
   const vehicleName = [vehicle.year, vehicle.make?.trim(), vehicle.model?.trim()]
     .filter(Boolean)
     .join(' ');
@@ -155,13 +162,15 @@ export const scheduleWrenchyMileageAlerts = async (
   const alerts: { identifier: string; title: string; body: string }[] = [];
 
   // Oil change — warn at 6000km, overdue at 8000km
-  const kmSinceOil = mileage - lastServiceMileages.oil;
-  if (kmSinceOil >= 8000) {
-    const msg = getRandom(wrenchyMessages.oil_overdue(vehicleName));
-    alerts.push({ identifier: `oil_overdue_${vehicle.id}`, ...msg });
-  } else if (kmSinceOil >= 6000) {
-    const msg = getRandom(wrenchyMessages.oil_warning(vehicleName));
-    alerts.push({ identifier: `oil_warning_${vehicle.id}`, ...msg });
+  if (!isEV) {
+    const kmSinceOil = mileage - lastServiceMileages.oil;
+    if (kmSinceOil >= 8000) {
+      const msg = getRandom(wrenchyMessages.oil_overdue(vehicleName));
+      alerts.push({ identifier: `oil_overdue_${vehicle.id}`, ...msg });
+    } else if (kmSinceOil >= 6000) {
+      const msg = getRandom(wrenchyMessages.oil_warning(vehicleName));
+      alerts.push({ identifier: `oil_warning_${vehicle.id}`, ...msg });
+    }
   }
 
   // Tire rotation — warn at 10000km, overdue at 12000km

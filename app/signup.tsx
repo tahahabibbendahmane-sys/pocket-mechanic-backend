@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, View, Text } from 'react-native';
+import { StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, View, Text, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { useTheme } from '@/contexts/ThemeContext';
 import { ThemeColors, Spacing, BorderRadius, Typography, Shadows } from '@/constants/theme-enhanced';
+import { COLORS } from '@/constants/DesignSystem';
 import { AnimatedButton } from '@/components/AnimatedButton';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { supabase } from '@/lib/supabase';
@@ -16,9 +16,8 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { theme, isDark } = useTheme();
   const router = useRouter();
-  const colors = ThemeColors[theme];
+  const colors = ThemeColors.light;
 
   const handleSignUp = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -89,8 +88,9 @@ export default function SignUpScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[styles.container, { backgroundColor: COLORS.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
@@ -112,8 +112,8 @@ export default function SignUpScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: COLORS.card,
+                    borderColor: COLORS.border,
                     color: colors.text,
                   },
                 ]}
@@ -132,8 +132,8 @@ export default function SignUpScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: COLORS.card,
+                    borderColor: COLORS.border,
                     color: colors.text,
                   },
                 ]}
@@ -154,8 +154,8 @@ export default function SignUpScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: COLORS.card,
+                    borderColor: COLORS.border,
                     color: colors.text,
                   },
                 ]}
@@ -175,8 +175,8 @@ export default function SignUpScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
-                    borderColor: isDark ? '#334155' : '#E2E8F0',
+                    backgroundColor: COLORS.card,
+                    borderColor: COLORS.border,
                     color: colors.text,
                   },
                 ]}
@@ -191,8 +191,8 @@ export default function SignUpScreen() {
             </ThemedView>
 
             {error && (
-              <View style={[styles.errorContainer, { backgroundColor: isDark ? '#7F1D1D' : '#FEE2E2' }]}>
-                <Text style={[styles.errorText, { color: isDark ? '#FCA5A5' : '#DC2626' }]}>
+              <View style={[styles.errorContainer, { backgroundColor: '#FEE2E2' }]}>
+                <Text style={[styles.errorText, { color: '#DC2626' }]}>
                   {error}
                 </Text>
               </View>
@@ -205,10 +205,10 @@ export default function SignUpScreen() {
               <ThemedView style={styles.buttonContent}>
                 {loading ? (
                   <View style={styles.loadingContainer}>
-                    <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>Creating account...</Text>
+                    <Text style={[styles.buttonText, { color: COLORS.white }]}>Creating account...</Text>
                   </View>
                 ) : (
-                  <ThemedText style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                  <ThemedText style={[styles.buttonText, { color: COLORS.white }]}>
                     Sign Up
                   </ThemedText>
                 )}

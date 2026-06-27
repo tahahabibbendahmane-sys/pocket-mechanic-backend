@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,7 @@ import {
   Modal,
   SafeAreaView,
   Keyboard,
-  Pressable,
+  StatusBar,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -31,17 +31,16 @@ import ReAnimated, {
   FadeInUp,
 } from 'react-native-reanimated';
 
-import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useChat, ChatMessage } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import ChatHistoryModal from '@/components/ChatHistoryModal';
 import { supabase } from '@/lib/supabase';
-import { COLORS, getColors, TYPE, SPACING, RADIUS } from '@/constants/DesignSystem';
+import { Colors, COLORS, getColors, TYPE, SPACING, RADIUS } from '@/constants/DesignSystem';
 import { calculateFuelStats, getFuelLogs, type FuelStats } from '@/lib/fuelTracking';
 
-const BLUE = COLORS.blue;
+const ACCENT = COLORS.primary;
 
 // AI Model Configuration
 // To switch to OpenAI GPT-4o-mini:
@@ -75,8 +74,8 @@ type Vehicle = {
 };
 
 const MiniWrenchy = () => (
-  <View style={[styles.miniAvatar, { alignSelf: 'flex-start' }]}>
-    <Ionicons name="construct-outline" size={14} color="#FFF" />
+  <View style={[styles.miniAvatar, { alignSelf: 'flex-start', backgroundColor: Colors.primaryLight }]}>
+    <Ionicons name="construct-outline" size={14} color={Colors.primary} />
   </View>
 );
 
@@ -170,13 +169,29 @@ CRITICAL RULES — FOLLOW THESE EXACTLY:
 
 // Markdown rendering is applied only to assistant (Wrenchy) messages.
 
+/** Ionicons equivalents: wrench, alert-triangle, droplet, circle-dot, tool */
+const SUGGESTIONS: { icon: keyof typeof Ionicons.glyphMap; text: string }[] = [
+  { icon: 'construct-outline', text: 'What maintenance is due based on my mileage?' },
+  { icon: 'warning-outline', text: 'What are known issues on my vehicle?' },
+  { icon: 'water-outline', text: 'What are the exact fluid specs for my car?' },
+  { icon: 'disc-outline', text: 'What tires are recommended for my car?' },
+  { icon: 'hammer-outline', text: 'What repairs can I do myself to save money?' },
+];
+
+const CHIP_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.04,
+  shadowRadius: 3,
+  elevation: 1,
+} as const;
+
 export default function ChatbotScreen() {
-  const { isDark } = useTheme();
   const { t, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { profile } = useAuth();
   const { activeCar } = useActiveCar();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const { messages, setMessages, clearChat } = useChat();
   const params = useLocalSearchParams<{ initialMessage?: string }>();
@@ -282,19 +297,11 @@ export default function ChatbotScreen() {
   const rawDisplayName = (profile?.displayName || '').trim();
   void rawDisplayName;
 
-  const suggestions = useMemo(
-    () => [
-      '🔧 What maintenance is due based on my mileage?',
-      '⚠️ What are known issues on my vehicle?',
-      '🛢️ What are the exact fluid specs for my car?',
-      '🛞 What tires are recommended for my car?',
-      '💰 What repairs can I do myself to save money?',
-    ],
-    []
-  );
-
   useFocusEffect(
     useCallback(() => {
+      const safety = setTimeout(() => {
+        console.warn('[chatbot] garage fetch exceeded 5s');
+      }, 5000);
       const fetchGarage = async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -307,18 +314,25 @@ export default function ChatbotScreen() {
                 mileage: row.mileage ?? row.current_mileage ?? row.odometer ?? row.kilometers ?? 0,
               }));
               setVehicles(normalizedVehicles);
-              if (!selectedCar) setSelectedCar(normalizedVehicles[0]);
-            } else { setVehicles([]); }
+              setSelectedCar((prev) => prev ?? normalizedVehicles[0]);
+            } else {
+              setVehicles([]);
+            }
           } else {
             const stored = await AsyncStorage.getItem('guest_garage');
             const parsed = stored ? JSON.parse(stored) : [];
             setVehicles(Array.isArray(parsed) ? parsed : []);
           }
-        } catch { /* silent */ }
-        finally { setIsLoading(false); }
+        } catch (e) {
+          console.error(e);
+          setVehicles([]);
+        } finally {
+          clearTimeout(safety);
+        }
       };
       fetchGarage();
       return () => {
+        clearTimeout(safety);
         if (messagesRef.current.length > 1) saveConversationToHistory();
         clearChat();
       };
@@ -407,10 +421,8 @@ export default function ChatbotScreen() {
     } finally { setIsLoading(false); }
   };
 
-  const handleSuggestionPress = (text: string) => {
-    // Strip leading emoji/icon so the user's message is clean
-    const cleaned = text.replace(/^[\p{Emoji}\s]+/u, '').trim();
-    sendMessage(cleaned);
+  const handleSuggestion = (text: string) => {
+    sendMessage(text);
   };
 
   const handleSelectHistorySession = useCallback((sessionMessages: ChatMessage[]) => {
@@ -425,30 +437,32 @@ export default function ChatbotScreen() {
   }));
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
-      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: Colors.background ?? '#F8F9FA' }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
+      <SafeAreaView style={[styles.container, { backgroundColor: Colors.background ?? '#F8F9FA' }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.background ?? '#F8F9FA'} />
+        <Text style={styles.screenTitle}>Wrenchy</Text>
         {/* HEADER */}
-        <View style={[styles.header, { backgroundColor: c.background }]}>
+        <View style={[styles.header, { backgroundColor: Colors.background ?? '#F8F9FA' }]}>
           <TouchableOpacity onPress={() => setIsHistoryVisible(true)} style={styles.headerIconBtn}>
-            <MaterialIcons name="history" size={18} color={c.textMuted} />
+            <MaterialIcons name="history" size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.carPill, { backgroundColor: isDark ? '#ffffff10' : '#00000008', borderColor: c.border }]}
+            style={styles.carPill}
             onPress={() => setShowPicker(true)}
           >
-            <Text style={[styles.carPillText, { color: c.text }]} numberOfLines={1}>
+            <Text style={styles.carPillText} numberOfLines={1}>
               {selectedCar ? [selectedCar.year, selectedCar.make?.trim(), selectedCar.model?.trim()].filter(Boolean).join(' ') : t.aiChat.selectCar}
             </Text>
-            <Ionicons name="chevron-down" size={14} color={c.textMuted} />
+            <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
           </TouchableOpacity>
           <View style={styles.headerRight}>
             {messages.length > 0 && (
               <TouchableOpacity onPress={clearChat} style={styles.headerIconBtn}>
-                <Ionicons name="trash-outline" size={18} color={c.textMuted} />
+                <Ionicons name="trash-outline" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={clearChat} style={styles.headerIconBtn}>
-              <Ionicons name="refresh" size={18} color={c.textMuted} />
+              <Ionicons name="refresh" size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -474,10 +488,10 @@ export default function ChatbotScreen() {
                     setShowPicker(false);
                   }}
                 >
-                  <Text style={[TYPE.body, { color: selectedCar?.id === car.id ? BLUE : c.textSecondary }]}>
+                  <Text style={[TYPE.body, { color: selectedCar?.id === car.id ? ACCENT : c.textSecondary }]}>
                     {car.year} {car.make} {car.model}
                   </Text>
-                  {selectedCar?.id === car.id && <Ionicons name="checkmark" size={20} color={BLUE} />}
+                  {selectedCar?.id === car.id && <Ionicons name="checkmark" size={20} color={ACCENT} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -486,30 +500,27 @@ export default function ChatbotScreen() {
 
         {/* CHAT AREA */}
         {messages.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyBody}>
-              <View style={styles.emptyCenter}>
+          <View style={[styles.emptyState, { backgroundColor: Colors.background ?? '#F8F9FA' }]}>
+            <View style={[styles.emptyBody, { backgroundColor: Colors.background ?? '#F8F9FA' }]}>
+              <View style={[styles.emptyCenter, { backgroundColor: Colors.background ?? '#F8F9FA' }]}>
                 <ReAnimated.View style={bobStyle}>
-                  <View style={[styles.smallIcon, { backgroundColor: BLUE }]}>
-                    <Ionicons name="construct-outline" size={22} color="#FFF" />
-                  </View>
+                  <Ionicons name="construct-outline" size={48} color={Colors.primary} />
                 </ReAnimated.View>
 
-                <Text style={[TYPE.h1, { color: c.text, textAlign: 'center' }]}>What can I help you with?</Text>
+                <Text style={styles.emptyTitle}>What can I help you with?</Text>
 
-                <View style={[styles.suggestionBox, { borderColor: c.border, backgroundColor: c.surface }]}>
-                  {suggestions.map((s, idx) => (
-                    <Pressable
-                      key={s}
-                      onPress={() => handleSuggestionPress(s)}
-                      style={({ pressed }) => [
-                        styles.suggestionRow,
-                        pressed && { backgroundColor: isDark ? '#ffffff08' : '#00000006' },
-                        idx < suggestions.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.divider },
-                      ]}
+                <View style={styles.suggestionList}>
+                  {SUGGESTIONS.map((s, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      activeOpacity={0.85}
+                      onPress={() => handleSuggestion(s.text)}
+                      style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 0.5, borderColor: '#E2E6EA', paddingVertical: 13, paddingHorizontal: 14, marginBottom: 8 }}
                     >
-                      <Text style={[TYPE.body, { color: c.text }]}>{s}</Text>
-                    </Pressable>
+                      <Ionicons name={s.icon} size={18} color="#1A6FBF" style={{ marginRight: 12 }} />
+                      <Text style={{ flex: 1, fontSize: 14, color: '#0D1117', lineHeight: 20 }}>{s.text}</Text>
+                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>
@@ -520,8 +531,9 @@ export default function ChatbotScreen() {
             ref={flatListRef}
             data={messages}
             keyExtractor={item => item._id}
-            style={{ flex: 1 }}
+            style={{ flex: 1, backgroundColor: Colors.background ?? '#F8F9FA' }}
             contentContainerStyle={styles.chatContent}
+            showsVerticalScrollIndicator={false}
             onTouchStart={() => Keyboard.dismiss()}
             renderItem={({ item, index }) => {
               const isLoadingBubble = item._id.startsWith('loading-') || item._id.startsWith('connecting-');
@@ -532,7 +544,7 @@ export default function ChatbotScreen() {
                 return (
                   <ReAnimated.View entering={FadeInUp.duration(250).delay(50)} style={[styles.userRow, { marginTop: sameAsPrevSender ? 4 : 12 }]}>
                     <View style={styles.userBubble}>
-                      <Text style={[TYPE.body, { color: '#FFF' }]}>{item.text}</Text>
+                      <Text style={styles.userBubbleText}>{item.text}</Text>
                     </View>
                   </ReAnimated.View>
                 );
@@ -542,21 +554,21 @@ export default function ChatbotScreen() {
               return (
                 <ReAnimated.View entering={FadeInUp.duration(200).easing(Easing.out(Easing.ease))} style={[styles.assistantRow, { marginTop: sameAsPrevSender ? 4 : 12 }]}>
                   {showAvatar ? <MiniWrenchy /> : <View style={styles.miniAvatarSpacer} />}
-                  <View style={[styles.botBubble, { backgroundColor: c.surface, borderColor: c.border }]}>
+                  <View style={styles.botBubble}>
                     {isLoadingBubble ? (
                       <TypingDots />
                     ) : (
                       <Markdown
                         style={{
                           body: {
-                            color: c.text,
+                            color: Colors.textPrimary,
                             fontSize: 15,
                             lineHeight: 22,
                             fontFamily: 'Outfit_400Regular',
                           },
                           strong: {
                             fontFamily: 'Outfit_700Bold',
-                            color: c.text,
+                            color: Colors.textPrimary,
                           },
                           bullet_list: {
                             marginVertical: 4,
@@ -570,17 +582,17 @@ export default function ChatbotScreen() {
                           heading1: {
                             fontFamily: 'Outfit_700Bold',
                             fontSize: 20,
-                            color: c.text,
+                            color: Colors.textPrimary,
                             marginVertical: 6,
                           },
                           heading2: {
                             fontFamily: 'Outfit_700Bold',
                             fontSize: 17,
-                            color: c.text,
+                            color: Colors.textPrimary,
                             marginVertical: 4,
                           },
                           code_inline: {
-                            backgroundColor: isDark ? '#00000015' : '#F0F0F0',
+                            backgroundColor: '#F0F0F0',
                             borderRadius: 4,
                             paddingHorizontal: 4,
                             fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
@@ -604,13 +616,33 @@ export default function ChatbotScreen() {
           const setInputText = setInput;
           const handleSend = () => sendMessage();
           return (
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.border }}>
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', backgroundColor: c.surface, borderRadius: 24, borderWidth: 1.5, borderColor: c.border, paddingLeft: 18, paddingRight: 6, minHeight: 48 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 0, backgroundColor: Colors.background ?? '#F8F9FA' }}>
+              <View
+                style={{
+                  flex: 1,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: Colors.surfaceSecondary,
+                  borderWidth: 0,
+                  borderRadius: 12,
+                  paddingHorizontal: 14,
+                  minHeight: 46,
+                  maxHeight: 120,
+                }}
+              >
                 <TextInput
                   ref={inputRef}
-                  style={{ flex: 1, fontSize: 15, color: c.text, paddingVertical: 12, maxHeight: 100, fontFamily: 'Outfit_400Regular' }}
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    lineHeight: 22,
+                    color: Colors.textPrimary,
+                    fontFamily: 'Outfit_400Regular',
+                    paddingVertical: 10,
+                    maxHeight: 110,
+                  }}
                   placeholder="Ask Wrenchy anything..."
-                  placeholderTextColor={c.textMuted}
+                  placeholderTextColor={Colors.textMuted}
                   multiline
                   value={inputText}
                   onChangeText={setInputText}
@@ -620,9 +652,17 @@ export default function ChatbotScreen() {
                 <TouchableOpacity
                   onPress={handleSend}
                   disabled={!inputText.trim()}
-                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: inputText.trim() ? BLUE : '#E5E5E5', justifyContent: 'center', alignItems: 'center', marginBottom: 6, opacity: inputText.trim() ? 1 : 0.4 }}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 20,
+                    backgroundColor: inputText.trim() ? Colors.primary : Colors.border,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    opacity: inputText.trim() ? 1 : 0.45,
+                  }}
                 >
-                  <Ionicons name="arrow-up" size={20} color={inputText.trim() ? '#FFFFFF' : '#999'} />
+                  <Ionicons name="arrow-up" size={18} color={inputText.trim() ? '#FFFFFF' : Colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -638,32 +678,83 @@ export default function ChatbotScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
 
+  screenTitle: {
+    fontFamily: 'Outfit_700Bold',
+    fontSize: 22,
+    color: Colors.textPrimary ?? '#0D1117',
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: 4,
+  },
+
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingVertical: 10 },
   headerIconBtn: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  carPill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, gap: 6, maxWidth: 220 },
-  carPillText: { ...TYPE.bodySM, fontSize: 12 },
+  carPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+    maxWidth: 220,
+  },
+  carPillText: {
+    fontFamily: 'Outfit_500Medium',
+    fontSize: 13,
+    color: Colors.textPrimary ?? '#0D1117',
+  },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { width: '82%', borderRadius: RADIUS.lg, borderWidth: 2.5, borderBottomWidth: 5, padding: SPACING.xl },
+  modalContent: { width: '82%', borderRadius: RADIUS.lg, borderWidth: 0.5, borderBottomWidth: 0, padding: SPACING.xl },
   carOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1 },
 
   // Empty state
   emptyState: { flex: 1, paddingHorizontal: SPACING.lg, paddingBottom: 8 },
   emptyBody: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 60 },
-  emptyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
-  smallIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  suggestionBox: { width: '100%', borderWidth: 1.5, borderRadius: 16, overflow: 'hidden', marginTop: 6 },
-  suggestionRow: { paddingVertical: 16, paddingHorizontal: 16 },
+  emptyCenter: { flex: 1, alignItems: 'stretch', justifyContent: 'center', gap: 16 },
+  emptyTitle: {
+    fontSize: 18,
+    color: Colors.textPrimary ?? '#0D1117',
+    textAlign: 'center',
+  },
+  suggestionList: { width: '100%', marginTop: 8 },
 
   // Chat
   chatContent: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.lg, paddingBottom: SPACING.lg, flexGrow: 1, justifyContent: 'flex-end' },
   userRow: { alignItems: 'flex-end' },
-  userBubble: { maxWidth: '75%', alignSelf: 'flex-end', backgroundColor: BLUE, borderRadius: 20, borderBottomRightRadius: 6, paddingHorizontal: 14, paddingVertical: 10, marginRight: 4 },
+  userBubble: {
+    maxWidth: '75%',
+    alignSelf: 'flex-end',
+    backgroundColor: Colors.primary,
+    borderRadius: 18,
+    borderTopRightRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginRight: 4,
+  },
+  userBubbleText: {
+    color: '#FFFFFF',
+    fontFamily: 'Outfit_400Regular',
+    fontSize: 15,
+    lineHeight: 22,
+  },
   assistantRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  miniAvatar: { width: 24, height: 24, borderRadius: 12, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
+  miniAvatar: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   miniAvatarSpacer: { width: 24, height: 24 },
-  botBubble: { maxWidth: '75%', borderRadius: 20, borderBottomLeftRadius: 6, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, alignSelf: 'flex-start' },
+  botBubble: {
+    maxWidth: '75%',
+    backgroundColor: Colors.surface,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    borderRadius: 18,
+    borderTopLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignSelf: 'flex-start',
+  },
 
   // Input
   inputWrapper: { borderTopWidth: 1, paddingHorizontal: 16, paddingVertical: 8 },
@@ -683,5 +774,5 @@ const styles = StyleSheet.create({
 
   // Typing
   typingBubble: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 10 },
-  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: BLUE, marginHorizontal: 3 },
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.primary, marginHorizontal: 3 },
 });

@@ -17,16 +17,16 @@ export const XP_REWARDS = {
 export type XPAction = keyof typeof XP_REWARDS;
 
 const LEVELS = [
-  { level: 1, xp: 0, title: 'Noob Driver', emoji: '🚗' },
-  { level: 2, xp: 100, title: 'Oil Spotter', emoji: '🛢️' },
-  { level: 3, xp: 300, title: 'Wrench Wielder', emoji: '🔧' },
-  { level: 4, xp: 600, title: 'Garage Regular', emoji: '🏠' },
-  { level: 5, xp: 1000, title: 'Grease Monkey', emoji: '🐒' },
-  { level: 6, xp: 1500, title: 'Pit Crew Pro', emoji: '🏁' },
-  { level: 7, xp: 2200, title: 'Master Mechanic', emoji: '👨‍🔧' },
-  { level: 8, xp: 3000, title: 'Engine Whisperer', emoji: '🔮' },
-  { level: 9, xp: 4000, title: 'Legend', emoji: '🏆' },
-  { level: 10, xp: 5500, title: 'Car God', emoji: '👑' },
+  { level: 1, xp: 0, title: 'New Driver', emoji: '' },
+  { level: 2, xp: 100, title: 'Maintenance Aware', emoji: '' },
+  { level: 3, xp: 300, title: 'Service Tracker', emoji: '' },
+  { level: 4, xp: 600, title: 'Garage Regular', emoji: '' },
+  { level: 5, xp: 1000, title: 'Dedicated Owner', emoji: '' },
+  { level: 6, xp: 1500, title: 'Care Pro', emoji: '' },
+  { level: 7, xp: 2200, title: 'Expert Maintainer', emoji: '' },
+  { level: 8, xp: 3000, title: 'Vehicle Specialist', emoji: '' },
+  { level: 9, xp: 4000, title: 'Top Tier', emoji: '' },
+  { level: 10, xp: 5500, title: 'Elite', emoji: '' },
 ];
 
 export interface LevelInfo {

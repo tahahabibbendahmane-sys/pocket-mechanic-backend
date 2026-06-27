@@ -20,14 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { signInWithGoogle, signInWithApple } from '@/lib/auth';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-const BG = '#0D0D0D';
-const SURFACE = '#1A1A1A';
-const BORDER = '#2A2A2A';
-const BLUE = '#0567A6';
-const WHITE = '#FFFFFF';
-const MUTED = '#888888';
-const PLACEHOLDER = '#555555';
+import { COLORS } from '@/constants/DesignSystem';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -90,7 +83,7 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
 
       {/* Radial glow */}
       <LinearGradient
@@ -112,7 +105,7 @@ export default function LoginScreen() {
           {/* Logo + Branding */}
           <View style={styles.brandSection}>
             <View style={styles.logoBox}>
-              <Ionicons name="car-sport-outline" size={40} color={BLUE} />
+              <Ionicons name="car-sport-outline" size={40} color={COLORS.blue} />
             </View>
             <Text style={styles.appName}>{t.auth.appName}</Text>
             <Text style={styles.tagline}>{t.auth.tagline}</Text>
@@ -128,7 +121,7 @@ export default function LoginScreen() {
                   emailFocused && styles.inputFocused,
                 ]}
                 placeholder={t.auth.emailPlaceholder}
-                placeholderTextColor={PLACEHOLDER}
+                placeholderTextColor={COLORS.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 onFocus={() => setEmailFocused(true)}
@@ -151,7 +144,7 @@ export default function LoginScreen() {
                   passwordFocused && styles.inputFocused,
                 ]}
                 placeholder={t.auth.passwordPlaceholder}
-                placeholderTextColor={PLACEHOLDER}
+                placeholderTextColor={COLORS.textMuted}
                 value={password}
                 onChangeText={setPassword}
                 onFocus={() => setPasswordFocused(true)}
@@ -241,7 +234,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: COLORS.background,
   },
   flex: {
     flex: 1,
@@ -267,22 +260,22 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 24,
-    backgroundColor: SURFACE,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.border,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   appName: {
-    color: WHITE,
+    color: COLORS.text,
     fontSize: 32,
     fontWeight: '700',
     letterSpacing: 0.5,
     marginBottom: 8,
   },
   tagline: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 14,
     fontWeight: '400',
   },
@@ -297,23 +290,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 6,
   },
   input: {
-    backgroundColor: SURFACE,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.border,
     borderRadius: 12,
     height: 52,
     paddingHorizontal: 16,
-    color: WHITE,
+    color: COLORS.text,
     fontSize: 15,
   },
   inputFocused: {
-    borderColor: BLUE,
+    borderColor: COLORS.blue,
   },
 
   // Error
@@ -338,14 +331,14 @@ const styles = StyleSheet.create({
   primaryBtn: {
     width: '100%',
     height: 52,
-    backgroundColor: BLUE,
+    backgroundColor: COLORS.blue,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
   },
   primaryBtnText: {
-    color: BG,
+    color: COLORS.white,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -354,14 +347,14 @@ const styles = StyleSheet.create({
     height: 52,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.border,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 12,
   },
   secondaryBtnText: {
-    color: WHITE,
+    color: COLORS.text,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -374,7 +367,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   guestLinkText: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 13,
   },
 });

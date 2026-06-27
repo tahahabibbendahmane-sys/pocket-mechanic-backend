@@ -26,7 +26,7 @@ interface XPContextType {
 
 const XPContext = createContext<XPContextType>({
   totalXP: 0,
-  levelInfo: { level: 1, title: 'Noob Driver', emoji: '🚗', xpForNext: 100, xpProgress: 0, totalXP: 0 },
+  levelInfo: { level: 1, title: 'New Driver', emoji: '', xpForNext: 100, xpProgress: 0, totalXP: 0 },
   streak: { currentStreak: 0, longestStreak: 0, lastCheckIn: null, checkedInToday: false },
   earnedBadges: [],
   earnXP: async () => ({ xpEarned: 0, leveledUp: false }),

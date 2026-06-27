@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { isElectricVehicle } from './evDetection';
 
 export interface Badge {
   id: string;
@@ -21,6 +22,17 @@ export const BADGES: Record<string, Badge> = {
 };
 
 export const ALL_BADGE_IDS = Object.keys(BADGES);
+
+export const EV_EXCLUDED_ACHIEVEMENTS = ['oil_master'] as const;
+
+export function getEligibleBadgeIds(make?: string, model?: string): string[] {
+  const isEV = isElectricVehicle(make ?? '', model ?? '');
+  const achievements = ALL_BADGE_IDS.map((id) => BADGES[id]);
+  const eligibleAchievements = isEV
+    ? achievements.filter((a) => !(EV_EXCLUDED_ACHIEVEMENTS as readonly string[]).includes(a.id))
+    : achievements;
+  return eligibleAchievements.map((a) => a.id);
+}
 
 export async function getUserAchievements(userId: string): Promise<string[]> {
   const { data } = await supabase
@@ -48,12 +60,25 @@ export async function checkAndUnlockAchievements(
     guidesRead?: number;
     oilChangeCount?: number;
     vinDecoded?: boolean;
+    vehicleMake?: string;
+    vehicleModel?: string;
   }
 ): Promise<Badge[]> {
   const existing = await getUserAchievements(userId);
   const newBadges: Badge[] = [];
 
+  const isEV = isElectricVehicle(
+    context.vehicleMake ?? '',
+    context.vehicleModel ?? ''
+  );
+
+  const achievements = ALL_BADGE_IDS.map((id) => BADGES[id]);
+  const eligibleAchievements = isEV
+    ? achievements.filter((a) => !(EV_EXCLUDED_ACHIEVEMENTS as readonly string[]).includes(a.id))
+    : achievements;
+
   const tryUnlock = async (badgeId: string) => {
+    if (!eligibleAchievements.some((a) => a.id === badgeId)) return;
     if (existing.includes(badgeId)) return;
     const badge = BADGES[badgeId];
     if (!badge) return;

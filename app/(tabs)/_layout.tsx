@@ -1,36 +1,33 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { COLORS, getColors, TYPE } from '@/constants/DesignSystem';
+import { Colors } from '@/constants/DesignSystem';
 import * as Haptics from 'expo-haptics';
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { isDark } = useTheme();
-  const c = getColors(isDark);
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: COLORS.blue,
-        tabBarInactiveTintColor: c.textMuted,
+        tabBarActiveTintColor: Colors.tabActive,
+        tabBarInactiveTintColor: Colors.tabInactive,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: c.surface,
-          borderTopWidth: 1,
-          borderTopColor: c.divider,
+          backgroundColor: Colors.tabBar,
+          borderTopWidth: 0.5,
+          borderTopColor: Colors.tabBarBorder,
           elevation: 0,
           shadowOpacity: 0,
           height: 70 + insets.bottom,
           paddingBottom: insets.bottom,
         },
-        tabBarLabelStyle: styles.tabBarLabel,
+        tabBarLabelStyle: styles.tabBarLabelBase,
         tabBarIconStyle: styles.tabBarIcon,
         tabBarItemStyle: styles.tabBarItem,
       }}
@@ -44,10 +41,12 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t.nav.home,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.home}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'home' : 'home-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -56,10 +55,12 @@ export default function TabsLayout() {
         name="garage"
         options={{
           title: t.nav.garage,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.garage}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'car-sport' : 'car-sport-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -68,10 +69,12 @@ export default function TabsLayout() {
         name="maintenance"
         options={{
           title: t.nav.service,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.service}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'build' : 'build-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -80,10 +83,12 @@ export default function TabsLayout() {
         name="guides"
         options={{
           title: t.nav.guides,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.guides}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'book' : 'book-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -92,10 +97,12 @@ export default function TabsLayout() {
         name="chatbot"
         options={{
           title: t.nav.aiChat,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.aiChat}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -104,10 +111,12 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: t.nav.settings,
+          tabBarLabel: ({ focused, color }) => (
+            <Text style={[styles.tabLabel, focused ? styles.tabLabelFocused : styles.tabLabelMuted, { color }]}>{t.nav.settings}</Text>
+          ),
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.iconWrap}>
               <Ionicons name={focused ? 'settings' : 'settings-outline'} size={22} color={color} />
-              {focused && <View style={[styles.activeDot, { backgroundColor: COLORS.blue }]} />}
             </View>
           ),
         }}
@@ -117,10 +126,19 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  tabBarLabel: {
-    ...TYPE.labelSM,
+  tabBarLabelBase: {
     fontSize: 10,
     marginBottom: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginBottom: 2,
+  },
+  tabLabelFocused: {
+    fontFamily: 'Outfit_700Bold',
+  },
+  tabLabelMuted: {
+    fontFamily: 'Outfit_400Regular',
   },
   tabBarIcon: {
     marginTop: 4,
@@ -131,11 +149,5 @@ const styles = StyleSheet.create({
   iconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 3,
   },
 });

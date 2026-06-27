@@ -1,14 +1,14 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { View, Text, ScrollView, TextInput, StyleSheet, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TextInput, StyleSheet, StatusBar, ActivityIndicator, Alert, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { COLORS, SPACING, RADIUS, TYPE, getColors } from '@/constants/DesignSystem';
 import { ChunkyCard } from '@/components/ui/ChunkyCard';
 import { ChunkyButton } from '@/components/ui/ChunkyButton';
 import { XP_REWARDS } from '@/lib/xpSystem';
+import { isElectricVehicle } from '@/lib/evDetection';
 
 const DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -21,38 +21,37 @@ interface Guide {
   timeMax: number;
   costMin: number;
   costMax: number;
-  icon: string;
+  icon: keyof typeof Ionicons.glyphMap;
   color: string;
 }
 
 const GUIDES: Guide[] = [
-  { id: 'oil', title: 'How to Change Your Oil', category: 'Engine', difficulty: 'Easy', timeMin: 30, timeMax: 45, costMin: 30, costMax: 60, icon: '🛢️', color: COLORS.blue },
-  { id: 'brakes', title: 'Brake Pad Replacement', category: 'Brakes', difficulty: 'Moderate', timeMin: 60, timeMax: 90, costMin: 50, costMax: 120, icon: '🛑', color: COLORS.heartRed },
-  { id: 'tires', title: 'Tire Rotation & Inspection', category: 'Tires', difficulty: 'Easy', timeMin: 20, timeMax: 30, costMin: 0, costMax: 20, icon: '🛞', color: COLORS.starBlue },
-  { id: 'coolant', title: 'Coolant Flush & Replace', category: 'Fluids', difficulty: 'Easy', timeMin: 30, timeMax: 45, costMin: 20, costMax: 40, icon: '💧', color: COLORS.starBlue },
-  { id: 'air-filter', title: 'Engine Air Filter Change', category: 'Engine', difficulty: 'Easy', timeMin: 10, timeMax: 15, costMin: 10, costMax: 30, icon: '💨', color: COLORS.xpGreen },
-  { id: 'spark', title: 'Spark Plug Replacement', category: 'Engine', difficulty: 'Moderate', timeMin: 45, timeMax: 90, costMin: 20, costMax: 60, icon: '⚡', color: COLORS.blue },
-  { id: 'battery', title: 'Battery Testing & Replace', category: 'Electrical', difficulty: 'Easy', timeMin: 15, timeMax: 30, costMin: 80, costMax: 200, icon: '🔋', color: COLORS.xpGreen },
-  { id: 'cabin-filter', title: 'Cabin Air Filter Replace', category: 'Body', difficulty: 'Easy', timeMin: 10, timeMax: 20, costMin: 10, costMax: 25, icon: '🌬️', color: COLORS.starBlue },
-  { id: 'trans-fluid', title: 'Transmission Fluid Check', category: 'Fluids', difficulty: 'Moderate', timeMin: 30, timeMax: 60, costMin: 30, costMax: 80, icon: '⚙️', color: COLORS.levelPurple },
-  { id: 'wipers', title: 'Windshield Wiper Replacement', category: 'Body', difficulty: 'Easy', timeMin: 5, timeMax: 10, costMin: 15, costMax: 30, icon: '🧹', color: COLORS.xpGreen },
-  { id: 'headlights', title: 'Headlight Bulb Change', category: 'Electrical', difficulty: 'Easy', timeMin: 15, timeMax: 30, costMin: 10, costMax: 40, icon: '💡', color: COLORS.blue },
-  { id: 'serpentine', title: 'Serpentine Belt Inspection', category: 'Engine', difficulty: 'Hard', timeMin: 60, timeMax: 120, costMin: 25, costMax: 75, icon: '🔄', color: COLORS.heartRed },
+  { id: 'oil', title: 'How to Change Your Oil', category: 'Engine', difficulty: 'Easy', timeMin: 30, timeMax: 45, costMin: 30, costMax: 60, icon: 'water-outline', color: COLORS.blue },
+  { id: 'brakes', title: 'Brake Pad Replacement', category: 'Brakes', difficulty: 'Moderate', timeMin: 60, timeMax: 90, costMin: 50, costMax: 120, icon: 'stop-circle-outline', color: COLORS.heartRed },
+  { id: 'tires', title: 'Tire Rotation & Inspection', category: 'Tires', difficulty: 'Easy', timeMin: 20, timeMax: 30, costMin: 0, costMax: 20, icon: 'disc-outline', color: COLORS.starBlue },
+  { id: 'coolant', title: 'Coolant Flush & Replace', category: 'Fluids', difficulty: 'Easy', timeMin: 30, timeMax: 45, costMin: 20, costMax: 40, icon: 'rainy-outline', color: COLORS.starBlue },
+  { id: 'air-filter', title: 'Engine Air Filter Change', category: 'Engine', difficulty: 'Easy', timeMin: 10, timeMax: 15, costMin: 10, costMax: 30, icon: 'leaf-outline', color: COLORS.xpGreen },
+  { id: 'spark', title: 'Spark Plug Replacement', category: 'Engine', difficulty: 'Moderate', timeMin: 45, timeMax: 90, costMin: 20, costMax: 60, icon: 'flash-outline', color: COLORS.blue },
+  { id: 'battery', title: 'Battery Testing & Replace', category: 'Electrical', difficulty: 'Easy', timeMin: 15, timeMax: 30, costMin: 80, costMax: 200, icon: 'battery-half-outline', color: COLORS.xpGreen },
+  { id: 'cabin-filter', title: 'Cabin Air Filter Replace', category: 'Body', difficulty: 'Easy', timeMin: 10, timeMax: 20, costMin: 10, costMax: 25, icon: 'filter-outline', color: COLORS.starBlue },
+  { id: 'trans-fluid', title: 'Transmission Fluid Check', category: 'Fluids', difficulty: 'Moderate', timeMin: 30, timeMax: 60, costMin: 30, costMax: 80, icon: 'settings-outline', color: COLORS.levelPurple },
+  { id: 'wipers', title: 'Windshield Wiper Replacement', category: 'Body', difficulty: 'Easy', timeMin: 5, timeMax: 10, costMin: 15, costMax: 30, icon: 'brush-outline', color: COLORS.xpGreen },
+  { id: 'headlights', title: 'Headlight Bulb Change', category: 'Electrical', difficulty: 'Easy', timeMin: 15, timeMax: 30, costMin: 10, costMax: 40, icon: 'bulb-outline', color: COLORS.blue },
+  { id: 'serpentine', title: 'Serpentine Belt Inspection', category: 'Engine', difficulty: 'Hard', timeMin: 60, timeMax: 120, costMin: 25, costMax: 75, icon: 'sync-outline', color: COLORS.heartRed },
 ];
 
 const CATEGORIES = ['All', 'Engine', 'Brakes', 'Tires', 'Fluids', 'Electrical', 'Body'];
 
-const DIFFICULTY_COLORS: Record<string, string> = {
-  Easy: COLORS.xpGreen,
-  Moderate: COLORS.blue,
-  Hard: COLORS.heartRed,
+const DIFFICULTY_COLORS: Record<string, { bg: string; fg: string }> = {
+  Easy: { bg: COLORS.successLight, fg: COLORS.success },
+  Moderate: { bg: COLORS.warningLight, fg: COLORS.warning },
+  Hard: { bg: COLORS.dangerLight, fg: COLORS.danger },
 };
 
 export default function GuidesScreen() {
-  const { isDark } = useTheme();
   const { activeCar } = useActiveCar();
   const router = useRouter();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -64,6 +63,13 @@ export default function GuidesScreen() {
   const vehicleLabel = activeCar
     ? [activeCar.year, activeCar.make?.trim(), activeCar.model?.trim()].filter(Boolean).join(' ')
     : 'your vehicle';
+
+  const isEV = activeCar 
+    ? isElectricVehicle(activeCar.make ?? '', activeCar.model ?? '')
+    : false;
+
+  // Guides that don't apply to EVs
+  const EV_EXCLUDED_GUIDE_IDS = ['oil', 'spark', 'serpentine', 'coolant', 'trans-fluid'];
 
   const generateGuide = async () => {
     const query = aiPrompt.trim();
@@ -133,9 +139,10 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
     return GUIDES.filter((g) => {
       const matchCategory = activeCategory === 'All' || g.category === activeCategory;
       const matchSearch = !search || g.title.toLowerCase().includes(search.toLowerCase());
-      return matchCategory && matchSearch;
+      const matchesVehicle = isEV ? !EV_EXCLUDED_GUIDE_IDS.includes(g.id) : true;
+      return matchCategory && matchSearch && matchesVehicle;
     });
-  }, [search, activeCategory]);
+  }, [search, activeCategory, isEV]);
 
   const carName = activeCar
     ? [activeCar.make?.trim(), activeCar.model?.trim()].filter(Boolean).join(' ')
@@ -143,13 +150,13 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle="dark-content" />
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <Text style={[TYPE.displayMD, { color: c.text, marginBottom: SPACING.md }]}>DIY Guides</Text>
 
         {/* Search bar */}
-        <View style={[styles.searchBar, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <View style={[styles.searchBar, { backgroundColor: COLORS.surfaceSecondary }]}>
           <Ionicons name="search" size={18} color={c.textMuted} />
           <TextInput
             value={search}
@@ -165,17 +172,17 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat;
             return (
-              <ChunkyCard
+              <Pressable
                 key={cat}
-                variant={isActive ? 'blue' : 'default'}
                 onPress={() => setActiveCategory(cat)}
-                style={{
-                  ...styles.categoryPill,
-                  ...(isActive ? { backgroundColor: COLORS.blue } : {}),
-                }}
+                style={({ pressed }) => [
+                  styles.categoryChip,
+                  { backgroundColor: isActive ? COLORS.primaryLight : COLORS.surfaceSecondary },
+                  pressed && { opacity: 0.88 },
+                ]}
               >
-                <Text style={[TYPE.label, { color: isActive ? '#000' : c.textSecondary }]}>{cat}</Text>
-              </ChunkyCard>
+                <Text style={[TYPE.label, { color: isActive ? COLORS.primary : c.textSecondary }]}>{cat}</Text>
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -183,26 +190,37 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
         {/* Featured guide */}
         {carName && (
           <ChunkyCard
-            variant="blue"
             style={styles.featuredCard}
             onPress={() =>
-              router.push({ pathname: '/guide-detail', params: { id: 'oil' } })
+              router.push({ pathname: '/guide-detail', params: { id: isEV ? 'cabin-filter' : 'oil' } })
             }
           >
-            <Text style={[TYPE.labelSM, { color: COLORS.blueDark }]}>Recommended for your {carName}</Text>
-            <Text style={[TYPE.h2, { color: '#000', marginTop: 4 }]}>How to Change Your Oil</Text>
+            <Text style={[TYPE.labelSM, { color: COLORS.primary }]}>Recommended for your {carName}</Text>
+            <Text style={[TYPE.h2, { color: c.text, marginTop: 4 }]}>{isEV ? 'Cabin Air Filter Replace' : 'How to Change Your Oil'}</Text>
             <View style={styles.featuredMeta}>
-              <View style={[styles.diffPill, { backgroundColor: COLORS.xpGreenLight }]}>
-                <Text style={[TYPE.labelSM, { color: COLORS.xpGreenDark }]}>Easy</Text>
+              <View style={[styles.diffPill, { backgroundColor: DIFFICULTY_COLORS.Easy.bg }]}>
+                <Text style={[TYPE.labelSM, { color: DIFFICULTY_COLORS.Easy.fg }]}>Easy</Text>
               </View>
-              <Text style={[TYPE.bodySM, { color: '#00000088' }]}>30-45 min</Text>
+              <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>30-45 min</Text>
             </View>
           </ChunkyCard>
         )}
 
+        {isEV && (
+          <View style={[styles.evNotice, { backgroundColor: COLORS.primaryLight, marginBottom: SPACING.lg }]}>
+            <Ionicons name="information-circle-outline" size={22} color={COLORS.primary} style={{ marginRight: SPACING.md }} />
+            <View style={{ flex: 1 }}>
+              <Text style={[TYPE.h3, { color: c.text }]}>Electric vehicle detected</Text>
+              <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: 4 }]}>
+                Guides for oil changes, spark plugs, coolant, and serpentine belts are hidden — they do not apply to your {activeCar?.make} {activeCar?.model}.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Progress bar */}
         <View style={styles.progressRow}>
-          <View style={[styles.progressTrack, { backgroundColor: isDark ? '#2A2A2A' : '#E5E5E5' }]}>
+          <View style={[styles.progressTrack, { backgroundColor: COLORS.border }]}>
             <View style={[styles.progressFill, { width: '25%' }]} />
           </View>
           <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>3/{GUIDES.length} completed</Text>
@@ -218,14 +236,14 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
             }
           >
             <View style={styles.guideRow}>
-              <View style={[styles.guideIcon, { backgroundColor: guide.color + '20' }]}>
-                <Text style={styles.guideIconText}>{guide.icon}</Text>
+              <View style={[styles.guideIcon, { backgroundColor: COLORS.primaryLight }]}>
+                <Ionicons name={guide.icon} size={22} color={COLORS.primary} />
               </View>
               <View style={styles.guideInfo}>
                 <Text style={[TYPE.h3, { color: c.text }]}>{guide.title}</Text>
                 <View style={styles.guideMeta}>
-                  <View style={[styles.diffPill, { backgroundColor: DIFFICULTY_COLORS[guide.difficulty] + '20' }]}>
-                    <Text style={[TYPE.labelSM, { color: DIFFICULTY_COLORS[guide.difficulty] }]}>{guide.difficulty}</Text>
+                  <View style={[styles.diffPill, { backgroundColor: DIFFICULTY_COLORS[guide.difficulty]?.bg ?? COLORS.surfaceSecondary }]}>
+                    <Text style={[TYPE.labelSM, { color: DIFFICULTY_COLORS[guide.difficulty]?.fg ?? COLORS.textMuted }]}>{guide.difficulty}</Text>
                   </View>
                   <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>{guide.timeMin}-{guide.timeMax} min</Text>
                   <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>${guide.costMin}-{guide.costMax}</Text>
@@ -242,23 +260,23 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
         ))}
 
         {/* AI Guide Generator */}
-        <ChunkyCard variant="blue" style={styles.aiGenCard}>
-          <Text style={{ fontSize: 28 }}>🤖</Text>
-          <Text style={[TYPE.h3, { color: '#000', marginTop: SPACING.sm }]}>Can&apos;t find what you need?</Text>
-          <Text style={[TYPE.bodySM, { color: '#00000088', marginTop: 4 }]}>
+        <ChunkyCard style={styles.aiGenCard}>
+          <Ionicons name="sparkles-outline" size={32} color={COLORS.primary} />
+          <Text style={[TYPE.h3, { color: c.text, marginTop: SPACING.sm }]}>Can&apos;t find what you need?</Text>
+          <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: 4 }]}>
             Describe any repair and Wrenchy will generate a custom guide for your {vehicleLabel}.
           </Text>
           <TextInput
             value={aiPrompt}
             onChangeText={setAiPrompt}
             placeholder="e.g. Replace alternator, fix AC, change spark plugs..."
-            placeholderTextColor="#00000055"
+            placeholderTextColor={COLORS.textMuted}
             editable={!aiGenerating}
-            style={[styles.aiInput, { backgroundColor: isDark ? '#ffffff20' : '#00000008', borderColor: COLORS.blueDark }]}
+            style={[styles.aiInput, { backgroundColor: COLORS.surface, borderColor: COLORS.border }]}
           />
           <View style={styles.aiGenRow}>
             <ChunkyButton
-              title={aiGenerating ? 'Generating...' : 'Generate Guide ✨'}
+              title={aiGenerating ? 'Generating...' : 'Generate guide'}
               onPress={generateGuide}
               disabled={aiGenerating || !aiPrompt.trim()}
               style={{ flex: 1 }}
@@ -269,8 +287,8 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
           </View>
           {aiGenerating && (
             <View style={styles.aiLoadingRow}>
-              <ActivityIndicator size="small" color={COLORS.blueDark} />
-              <Text style={[TYPE.bodySM, { color: '#00000088', marginLeft: SPACING.sm }]}>Wrenchy is writing your guide...</Text>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={[TYPE.bodySM, { color: c.textSecondary, marginLeft: SPACING.sm }]}>Wrenchy is writing your guide...</Text>
             </View>
           )}
         </ChunkyCard>
@@ -279,10 +297,10 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
         {aiResult && (
           <ChunkyCard style={styles.aiResultCard}>
             <View style={styles.aiResultHeader}>
-              <Text style={{ fontSize: 20 }}>🤖</Text>
+              <Ionicons name="document-text-outline" size={22} color={COLORS.primary} />
               <Text style={[TYPE.h3, { color: c.text, flex: 1 }]}>Custom Guide</Text>
               <View style={styles.xpMini}>
-                <Text style={styles.xpMiniText}>+{XP_REWARDS.COMPLETE_GUIDE} XP ⚡</Text>
+                <Text style={styles.xpMiniText}>+{XP_REWARDS.COMPLETE_GUIDE} XP</Text>
               </View>
             </View>
             <View style={[styles.aiResultDivider, { backgroundColor: c.divider }]} />
@@ -294,7 +312,7 @@ Engine: ${(activeCar as any)?.engine_code || 'Not specified'}`;
                 const rest = trimmed.replace(/^\d+\./, '').trim();
                 return (
                   <View key={i} style={styles.aiStepRow}>
-                    <Text style={[TYPE.label, { color: COLORS.blue, minWidth: 24 }]}>{num}.</Text>
+                    <Text style={[TYPE.label, { color: COLORS.primary, minWidth: 24 }]}>{num}.</Text>
                     <Text style={[TYPE.body, { color: c.text, flex: 1 }]}>{rest}</Text>
                   </View>
                 );
@@ -322,11 +340,10 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2.5,
-    borderBottomWidth: 5,
-    borderRadius: RADIUS.sm,
+    borderWidth: 0,
+    borderRadius: 10,
+    height: 44,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
     gap: SPACING.sm,
     marginBottom: SPACING.lg,
   },
@@ -338,14 +355,25 @@ const styles = StyleSheet.create({
 
   categoryScroll: { marginBottom: SPACING.lg, marginLeft: -SPACING.xl },
   categoryRow: { paddingHorizontal: SPACING.xl, gap: SPACING.sm },
-  categoryPill: { paddingVertical: SPACING.xs, paddingHorizontal: SPACING.lg },
+  categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+
+  evNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    padding: SPACING.lg,
+  },
 
   featuredCard: { marginBottom: SPACING.lg },
   featuredMeta: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
 
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.lg },
-  progressTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: COLORS.xpGreen, borderRadius: 3 },
+  progressTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: COLORS.primary, borderRadius: 2 },
 
   guideCard: { marginBottom: SPACING.md },
   guideRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
@@ -356,18 +384,23 @@ const styles = StyleSheet.create({
   guideRight: { alignItems: 'center' },
 
   diffPill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.pill },
-  xpMini: { backgroundColor: COLORS.xpGreenLight, borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 2 },
-  xpMiniText: { ...TYPE.labelSM, color: COLORS.xpGreenDark, fontSize: 10 },
+  xpMini: { backgroundColor: COLORS.primaryLight, borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  xpMiniText: { ...TYPE.labelSM, color: COLORS.primary, fontSize: 10 },
 
   aiGenCard: { marginTop: SPACING.xl },
   aiInput: {
-    borderWidth: 2, borderRadius: RADIUS.md, height: 48,
-    paddingHorizontal: SPACING.lg, marginTop: SPACING.md,
-    ...TYPE.body, color: '#000',
+    borderWidth: 0.5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    height: 48,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    ...TYPE.body,
+    color: COLORS.textPrimary,
   },
   aiGenRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.md },
-  aiXpBadge: { backgroundColor: COLORS.xpGreenLight, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: COLORS.xpGreen },
-  aiXpText: { ...TYPE.labelSM, color: COLORS.xpGreenDark },
+  aiXpBadge: { backgroundColor: COLORS.primaryLight, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 0.5, borderColor: COLORS.border },
+  aiXpText: { ...TYPE.labelSM, color: COLORS.primary },
   aiLoadingRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.md },
   aiResultCard: { marginTop: SPACING.lg },
   aiResultHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },

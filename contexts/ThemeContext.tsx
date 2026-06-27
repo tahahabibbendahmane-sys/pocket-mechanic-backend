@@ -21,7 +21,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
-  const [theme, setThemeState] = useState<ThemeMode>(initialTheme || (systemColorScheme === 'dark' ? 'dark' : 'light'));
+  const [theme, setThemeState] = useState<ThemeMode>('light');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load theme from storage on startup
@@ -34,12 +34,11 @@ export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
         } else if (initialTheme) {
           setThemeState(initialTheme);
         } else {
-          // Use system theme if no saved preference
-          setThemeState(systemColorScheme === 'dark' ? 'dark' : 'light');
+          setThemeState('light');
         }
       } catch (error) {
         console.error('Error loading theme:', error);
-        setThemeState(systemColorScheme === 'dark' ? 'dark' : 'light');
+        setThemeState('light');
       } finally {
         setIsLoading(false);
       }

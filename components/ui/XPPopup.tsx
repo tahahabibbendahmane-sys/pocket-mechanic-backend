@@ -52,7 +52,7 @@ export function XPPopup({ amount, onComplete }: XPPopupProps) {
 
   return (
     <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
-      <Text style={styles.text}>+{amount} XP ⚡</Text>
+      <Text style={styles.text}>+{amount} XP</Text>
     </Animated.View>
   );
 }
@@ -62,9 +62,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 120,
     alignSelf: 'center',
-    backgroundColor: COLORS.blueLight,
-    borderWidth: 2,
-    borderColor: COLORS.blue,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 0.5,
+    borderColor: COLORS.border,
     borderRadius: 999,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -72,6 +72,6 @@ const styles = StyleSheet.create({
   },
   text: {
     ...TYPE.h2,
-    color: COLORS.blueDark,
+    color: COLORS.primary,
   },
 });

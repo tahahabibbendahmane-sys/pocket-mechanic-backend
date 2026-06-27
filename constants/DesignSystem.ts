@@ -1,45 +1,24 @@
-import { ViewStyle } from 'react-native';
+import { TextStyle, ViewStyle } from 'react-native';
+import { Colors as BaseColors, COLORS, CARD_SHADOW } from './colors';
 
-export const COLORS = {
-  blue: '#0567A6',
-  blueDark: '#044E80',
-  blueLight: '#E8F4FF',
-  blueGlow: '#B9DDFF',
-
-  xpGreen: '#58CC02',
-  xpGreenDark: '#46A302',
-  xpGreenLight: '#D7F5B1',
-  streakOrange: '#FF9600',
-  streakOrangeLight: '#FFF0D4',
-  levelPurple: '#CE82FF',
-  levelPurpleLight: '#F4E5FF',
-  heartRed: '#FF4B4B',
-  heartRedLight: '#FFE5E5',
-  starBlue: '#0567A6',
-  starBlueLight: '#E5F7FF',
-
-  light: {
-    background: '#F7F7F7',
-    surface: '#FFFFFF',
-    surfaceElevated: '#FFFFFF',
-    text: '#1A1A1A',
-    textSecondary: '#777777',
-    textMuted: '#AFAFAF',
-    border: '#E5E5E5',
-    divider: '#F0F0F0',
-  },
-
-  dark: {
-    background: '#0D0D0D',
-    surface: '#1A1A1A',
-    surfaceElevated: '#252525',
-    text: '#FFFFFF',
-    textSecondary: '#ABABAB',
-    textMuted: '#666666',
-    border: '#2A2A2A',
-    divider: '#1F1F1F',
-  },
+/**
+ * Canonical UI tokens — critical keys are enforced here so consumers never see
+ * undefined/white `textPrimary` or mismatched surface/background.
+ */
+export const Colors = {
+  ...BaseColors,
+  textPrimary: '#0D1117',
+  textSecondary: '#6B7280',
+  textMuted: '#9CA3AF',
+  primary: '#1A6FBF',
+  primaryLight: '#EBF3FC',
+  surface: '#FFFFFF',
+  surfaceSecondary: '#F2F4F6',
+  background: '#F8F9FA',
+  border: '#E2E6EA',
 } as const;
+
+export { COLORS, CARD_SHADOW };
 
 export const SPACING = {
   xs: 4,
@@ -52,55 +31,75 @@ export const SPACING = {
 } as const;
 
 export const RADIUS = {
-  sm: 12,
-  md: 16,
-  lg: 20,
-  xl: 24,
+  sm: 10,
+  md: 12,
+  lg: 14,
+  xl: 16,
   pill: 999,
 } as const;
 
+/** Standard card chrome — no colored borders */
+export const CARD_STYLE: ViewStyle = {
+  backgroundColor: Colors.surface,
+  borderRadius: 14,
+  borderWidth: 0.5,
+  borderColor: Colors.border,
+  padding: 16,
+  ...CARD_SHADOW,
+};
+
 export const SHADOWS = {
-  card: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  } as ViewStyle,
+  card: CARD_SHADOW,
   cardLifted: {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   } as ViewStyle,
   glow: (color: string): ViewStyle => ({
     shadowColor: color,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   }),
 };
 
+/** Typography — Outfit throughout */
 export const TYPE = {
-  displayXL: { fontFamily: 'Outfit_800ExtraBold', fontSize: 40, lineHeight: 44 },
-  displayLG: { fontFamily: 'Outfit_800ExtraBold', fontSize: 32, lineHeight: 36 },
-  displayMD: { fontFamily: 'Outfit_700Bold', fontSize: 28, lineHeight: 32 },
+  screenTitle: { fontFamily: 'Outfit_700Bold', fontSize: 26, lineHeight: 30, color: Colors.textPrimary } as TextStyle,
+  sectionHeader: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 13,
+    lineHeight: 16,
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+  },
+  cardLabel: { fontFamily: 'Outfit_500Medium', fontSize: 13, lineHeight: 18, color: Colors.textSecondary } as TextStyle,
+  cardValue: { fontFamily: 'Outfit_600SemiBold', fontSize: 17, lineHeight: 22, color: Colors.textPrimary } as TextStyle,
+  body: { fontFamily: 'Outfit_400Regular', fontSize: 15, lineHeight: 22, color: Colors.textPrimary } as TextStyle,
+  caption: { fontFamily: 'Outfit_400Regular', fontSize: 13, lineHeight: 18, color: Colors.textMuted } as TextStyle,
+  button: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, lineHeight: 20, color: Colors.textPrimary } as TextStyle,
 
-  h1: { fontFamily: 'Outfit_700Bold', fontSize: 24, lineHeight: 28 },
-  h2: { fontFamily: 'Outfit_700Bold', fontSize: 20, lineHeight: 24 },
-  h3: { fontFamily: 'Outfit_600SemiBold', fontSize: 17, lineHeight: 22 },
+  displayXL: { fontFamily: 'Outfit_800ExtraBold', fontSize: 40, lineHeight: 44, color: Colors.textPrimary },
+  displayLG: { fontFamily: 'Outfit_800ExtraBold', fontSize: 32, lineHeight: 36, color: Colors.textPrimary },
+  displayMD: { fontFamily: 'Outfit_700Bold', fontSize: 28, lineHeight: 32, color: Colors.textPrimary },
 
-  bodyLG: { fontFamily: 'Outfit_500Medium', fontSize: 16, lineHeight: 22 },
-  body: { fontFamily: 'Outfit_400Regular', fontSize: 15, lineHeight: 20 },
-  bodySM: { fontFamily: 'Outfit_400Regular', fontSize: 13, lineHeight: 18 },
+  h1: { fontFamily: 'Outfit_700Bold', fontSize: 24, lineHeight: 28, color: Colors.textPrimary },
+  h2: { fontFamily: 'Outfit_700Bold', fontSize: 20, lineHeight: 24, color: Colors.textPrimary },
+  h3: { fontFamily: 'Outfit_600SemiBold', fontSize: 17, lineHeight: 22, color: Colors.textPrimary },
 
-  label: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, lineHeight: 16, letterSpacing: 0.5 },
-  labelSM: { fontFamily: 'Outfit_600SemiBold', fontSize: 11, lineHeight: 14, letterSpacing: 0.8 },
+  bodyLG: { fontFamily: 'Outfit_500Medium', fontSize: 16, lineHeight: 22, color: Colors.textPrimary },
+  bodySM: { fontFamily: 'Outfit_400Regular', fontSize: 13, lineHeight: 18, color: Colors.textSecondary },
 
-  stat: { fontFamily: 'Outfit_800ExtraBold', fontSize: 36, lineHeight: 40 },
-  statSM: { fontFamily: 'Outfit_700Bold', fontSize: 24, lineHeight: 28 },
+  label: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, lineHeight: 16, letterSpacing: 0.5, color: Colors.textPrimary },
+  labelSM: { fontFamily: 'Outfit_600SemiBold', fontSize: 11, lineHeight: 14, letterSpacing: 0.8, color: Colors.textMuted },
+
+  stat: { fontFamily: 'Outfit_700Bold', fontSize: 20, lineHeight: 24, color: Colors.textPrimary },
+  statSM: { fontFamily: 'Outfit_600SemiBold', fontSize: 18, lineHeight: 22, color: Colors.textPrimary },
+  statLabel: { fontFamily: 'Outfit_400Regular', fontSize: 12, lineHeight: 16, color: Colors.textMuted },
 } as const;
 
 export interface ThemeColors {
@@ -114,18 +113,22 @@ export interface ThemeColors {
   divider: string;
 }
 
-export function getColors(isDark: boolean): ThemeColors {
-  return isDark ? COLORS.dark : COLORS.light;
+export function getColors(_isDark?: boolean): ThemeColors {
+  return {
+    background: Colors.background,
+    surface: Colors.surface,
+    surfaceElevated: Colors.surface,
+    text: Colors.textPrimary,
+    textSecondary: Colors.textSecondary,
+    textMuted: Colors.textMuted,
+    border: Colors.border,
+    divider: Colors.surfaceSecondary,
+  };
 }
 
 export type CardVariant = 'default' | 'green' | 'blue' | 'purple' | 'red';
 
-export function getCardBorderColor(variant: CardVariant, isDark: boolean): string {
-  switch (variant) {
-    case 'green': return COLORS.xpGreen;
-    case 'blue': return COLORS.blue;
-    case 'purple': return COLORS.levelPurple;
-    case 'red': return COLORS.heartRed;
-    default: return isDark ? COLORS.dark.border : COLORS.light.border;
-  }
+/** No colored card borders — accent only inside content */
+export function getCardBorderColor(_variant: CardVariant, _isDark?: boolean): string {
+  return Colors.border;
 }

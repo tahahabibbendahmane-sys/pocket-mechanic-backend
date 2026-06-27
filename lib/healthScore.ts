@@ -1,4 +1,5 @@
 import { Vehicle } from '@/types/vehicle';
+import { isElectricVehicle } from './evDetection';
 
 interface HealthScoreResult {
   score: number;
@@ -17,6 +18,7 @@ export const calculateHealthScore = (
     (vehicle as any).current_mileage > 0
       ? (vehicle as any).current_mileage
       : (vehicle.mileage ?? 0);
+  const isEV = isElectricVehicle(vehicle.make ?? '', vehicle.model ?? '');
   let score = 100;
   const issues: string[] = [];
 
@@ -29,8 +31,12 @@ export const calculateHealthScore = (
 
   // No service history at all
   if (vehicleLogs.length === 0) {
-    score -= 20;
-    issues.push('No service history logged');
+    const vehicleAge = new Date().getFullYear() - (vehicle.year ?? new Date().getFullYear());
+    const isNewVehicle = vehicleAge <= 1 && vehicleMileage < 15000;
+    if (!isNewVehicle) {
+      score -= 20;
+      issues.push('No service history logged');
+    }
   }
 
   // Check overdue reminders
@@ -80,19 +86,20 @@ export const calculateHealthScore = (
   const kmSinceTire = vehicleMileage - lastTireMileage;
   const kmSinceBrake = vehicleMileage - lastBrakeMileage;
 
-  // Oil — deduct if overdue regardless of log history
-  if (oilLogs.length > 0) {
-    if (kmSinceOil >= 8000) {
+  // Oil — skip entirely for EVs
+  if (!isEV) {
+    if (oilLogs.length > 0) {
+      if (kmSinceOil >= 8000) {
+        score -= 25;
+        issues.push('Oil change overdue');
+      } else if (kmSinceOil >= 6000) {
+        score -= 10;
+        issues.push('Oil change due soon');
+      }
+    } else if (vehicleMileage > 8000) {
       score -= 25;
-      issues.push('Oil change overdue');
-    } else if (kmSinceOil >= 6000) {
-      score -= 10;
-      issues.push('Oil change due soon');
+      issues.push('No oil change on record');
     }
-  } else if (vehicleMileage > 8000) {
-    // No oil log at all + high mileage = assume overdue
-    score -= 25;
-    issues.push('No oil change on record');
   }
 
   // Tire rotation

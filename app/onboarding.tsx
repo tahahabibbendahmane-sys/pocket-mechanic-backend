@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, SPACING, RADIUS, TYPE } from '@/constants/DesignSystem';
 
@@ -13,7 +14,7 @@ const LEGACY_COMPLETE_KEY = '@pocket_mechanic:onboarding_complete';
 
 type Slide = {
   key: string;
-  emoji: string;
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
 };
@@ -21,27 +22,27 @@ type Slide = {
 const SLIDES: Slide[] = [
   {
     key: 'track',
-    emoji: '🚗',
+    icon: 'car-sport-outline',
     title: 'Track Your Ride',
     subtitle: 'Keep your car healthy with smart maintenance tracking',
   },
   {
     key: 'save',
-    emoji: '💰',
+    icon: 'wallet-outline',
     title: 'Save Money',
-    subtitle: 'See how much you save doing DIY vs shop prices',
+    subtitle: 'See how much you save doing DIY versus shop prices',
   },
   {
     key: 'wrenchy',
-    emoji: '🤖',
+    icon: 'hardware-chip-outline',
     title: 'Meet Wrenchy',
-    subtitle: 'Your AI mechanic that knows your car inside out',
+    subtitle: 'Your AI assistant that knows your car inside out',
   },
   {
     key: 'xp',
-    emoji: '⚡',
+    icon: 'trending-up-outline',
     title: 'Level Up',
-    subtitle: 'Earn XP, build streaks, and become a Car God',
+    subtitle: 'Earn XP, build streaks, and stay on top of maintenance',
   },
 ];
 
@@ -74,8 +75,8 @@ export default function OnboardingScreen() {
 
   const renderSlide = ({ item }: { item: Slide }) => (
     <View style={[styles.slide, { width }]}>
-      <View style={styles.emojiWrap}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
+      <View style={styles.iconWrap}>
+        <Ionicons name={item.icon} size={48} color={COLORS.primary} />
       </View>
       <Text style={styles.title}>{item.title}</Text>
       <Text style={styles.subtitle}>{item.subtitle}</Text>
@@ -123,7 +124,7 @@ export default function OnboardingScreen() {
 
       {/* CTA Button */}
       <TouchableOpacity style={styles.ctaBtn} onPress={handleNext} activeOpacity={0.85}>
-        <Text style={styles.ctaText}>{isLast ? "Let's Go! 🔥" : 'Next'}</Text>
+        <Text style={styles.ctaText}>{isLast ? "Let's go" : 'Next'}</Text>
       </TouchableOpacity>
 
       <View style={{ height: SPACING.xxl }} />
@@ -134,7 +135,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.dark.background,
+    backgroundColor: COLORS.background,
   },
   skipBtn: {
     position: 'absolute',
@@ -146,7 +147,7 @@ const styles = StyleSheet.create({
   },
   skipText: {
     ...TYPE.body,
-    color: COLORS.dark.textSecondary,
+    color: COLORS.textMuted,
   },
   slide: {
     flex: 1,
@@ -154,29 +155,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: SPACING.xxxl,
   },
-  emojiWrap: {
+  iconWrap: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: COLORS.blue + '15',
-    borderWidth: 3,
-    borderColor: COLORS.blue + '30',
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 0.5,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: SPACING.xxxl,
   },
-  emoji: {
-    fontSize: 56,
-  },
   title: {
     ...TYPE.displayMD,
-    color: '#FFFFFF',
+    color: COLORS.text,
     textAlign: 'center',
     marginBottom: SPACING.md,
   },
   subtitle: {
     ...TYPE.body,
-    color: COLORS.dark.textSecondary,
+    color: COLORS.textMuted,
     textAlign: 'center',
     maxWidth: 280,
     lineHeight: 22,
@@ -191,20 +189,21 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.blue,
+    backgroundColor: COLORS.amber,
   },
   ctaBtn: {
     marginHorizontal: SPACING.xl,
-    backgroundColor: COLORS.blue,
+    backgroundColor: COLORS.amber,
     borderRadius: RADIUS.sm,
     borderWidth: 2.5,
-    borderBottomWidth: 5,
-    borderColor: COLORS.blueDark,
+    borderBottomWidth: 0,
+    borderColor: COLORS.amberDark,
     paddingVertical: SPACING.lg,
     alignItems: 'center',
   },
   ctaText: {
     ...TYPE.h2,
-    color: '#000000',
+    color: COLORS.white,
+    fontFamily: 'Outfit_700Bold',
   },
 });

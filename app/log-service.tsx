@@ -4,6 +4,7 @@ import {
   Alert,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -18,14 +19,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { addMaintenanceLog, getServiceTypes, ServiceType } from '@/lib/maintenance';
 import { scheduleReminderNotification } from '@/lib/notifications';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
+import { COLORS } from '@/constants/DesignSystem';
 
-const BLUE = '#0567A6';
-const BG = '#0D0D0D';
-const SURFACE = '#1A1A1A';
-const BORDER = '#2A2A2A';
-const TEXT = '#FFFFFF';
-const MUTED = '#888888';
-const PLACEHOLDER = '#555555';
+const BLUE = COLORS.blue;
 
 type Params = {
   vehicleId?: string;
@@ -221,6 +217,7 @@ export default function LogServiceScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -240,7 +237,7 @@ export default function LogServiceScreen() {
             <Text
               style={[
                 styles.headerSave,
-                { color: isFormValid ? BLUE : '#555555' },
+                { color: isFormValid ? BLUE : COLORS.textMuted },
               ]}
             >
               Save
@@ -317,7 +314,7 @@ export default function LogServiceScreen() {
             <TextInput
               style={styles.input}
               placeholder="Enter service name"
-              placeholderTextColor={PLACEHOLDER}
+              placeholderTextColor={COLORS.textLight}
               value={serviceName}
               onChangeText={setServiceName}
             />
@@ -343,7 +340,7 @@ export default function LogServiceScreen() {
             style={styles.input}
             keyboardType="numeric"
             placeholder={initialMileage ? String(initialMileage) : 'e.g. 125000'}
-            placeholderTextColor={PLACEHOLDER}
+            placeholderTextColor={COLORS.textLight}
             value={mileageText}
             onChangeText={setMileageText}
           />
@@ -358,7 +355,7 @@ export default function LogServiceScreen() {
               style={[styles.input, styles.costInput]}
               keyboardType="decimal-pad"
               placeholder="0.00"
-              placeholderTextColor={PLACEHOLDER}
+              placeholderTextColor={COLORS.textLight}
               value={costText}
               onChangeText={setCostText}
             />
@@ -371,7 +368,7 @@ export default function LogServiceScreen() {
           <TextInput
             style={styles.input}
             placeholder="e.g. Jiffy Lube, DIY"
-            placeholderTextColor={PLACEHOLDER}
+            placeholderTextColor={COLORS.textLight}
             value={shopName}
             onChangeText={setShopName}
           />
@@ -383,7 +380,7 @@ export default function LogServiceScreen() {
           <TextInput
             style={[styles.input, styles.notesInput]}
             placeholder="Add any details about this service"
-            placeholderTextColor={PLACEHOLDER}
+            placeholderTextColor={COLORS.textLight}
             value={notes}
             onChangeText={setNotes}
             multiline
@@ -398,7 +395,7 @@ export default function LogServiceScreen() {
             <Switch
               value={reminderEnabled}
               onValueChange={setReminderEnabled}
-              trackColor={{ false: '#3A3A3C', true: BLUE + '60' }}
+              trackColor={{ false: COLORS.border, true: BLUE + '60' }}
               thumbColor={reminderEnabled ? BLUE : '#F4F3F4'}
             />
           </View>
@@ -411,7 +408,7 @@ export default function LogServiceScreen() {
                   style={styles.input}
                   keyboardType="numeric"
                   placeholder="e.g. 133000"
-                  placeholderTextColor={PLACEHOLDER}
+                  placeholderTextColor={COLORS.textLight}
                   value={nextMilesText}
                   onChangeText={setNextMilesText}
                 />
@@ -456,7 +453,7 @@ export default function LogServiceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: COLORS.background,
   },
   header: {
     flexDirection: 'row',
@@ -466,14 +463,14 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: COLORS.border,
   },
   headerCancel: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 15,
   },
   headerTitle: {
-    color: TEXT,
+    color: COLORS.text,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -496,7 +493,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   fieldLabel: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 13,
     marginBottom: 8,
   },
@@ -520,32 +517,32 @@ const styles = StyleSheet.create({
     borderColor: BLUE,
   },
   pillInactive: {
-    backgroundColor: SURFACE,
-    borderColor: BORDER,
+    backgroundColor: COLORS.surface,
+    borderColor: COLORS.border,
   },
   pillText: {
     fontSize: 13,
     fontWeight: '500',
   },
   pillTextActive: {
-    color: '#0D0D0D',
+    color: COLORS.white,
   },
   pillTextInactive: {
-    color: TEXT,
+    color: COLORS.text,
   },
   input: {
-    backgroundColor: SURFACE,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.border,
     borderRadius: 12,
     height: 52,
     paddingHorizontal: 16,
-    color: TEXT,
+    color: COLORS.text,
     fontSize: 15,
     justifyContent: 'center',
   },
   inputValue: {
-    color: TEXT,
+    color: COLORS.text,
     fontSize: 15,
   },
   costRow: {
@@ -553,7 +550,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   costPrefix: {
-    color: MUTED,
+    color: COLORS.textMuted,
     fontSize: 16,
     marginRight: 8,
   },
@@ -566,9 +563,9 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   reminderCard: {
-    backgroundColor: SURFACE,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.border,
     borderRadius: 16,
     padding: 16,
     marginTop: 4,
@@ -580,7 +577,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   reminderTitle: {
-    color: TEXT,
+    color: COLORS.text,
     fontSize: 15,
     fontWeight: '600',
   },

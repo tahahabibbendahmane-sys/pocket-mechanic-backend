@@ -6,6 +6,7 @@ import { ServiceLog } from '@/types/service';
 import { validateMileageUpdate } from '@/utils/vehicle-validation';
 import { supabase } from '@/lib/supabase';
 import { scheduleWrenchyMileageAlerts } from '@/lib/notifications';
+import { isElectricVehicle } from '@/lib/evDetection';
 
 const VEHICLES_STORAGE_KEY = '@pocket_mechanic:vehicles';
 const ACTIVE_VEHICLE_STORAGE_KEY = '@pocket_mechanic:active_vehicle_id';
@@ -246,18 +247,29 @@ export function ActiveCarProvider({ children }: ActiveCarProviderProps) {
             .eq('vehicle_id', id)
             .order('created_at', { ascending: false });
 
-          const lastOil = logs?.find((l: any) =>
-            l.service_name?.toLowerCase().includes('oil')
-          )?.mileage_at_service;
+          const isEV = isElectricVehicle(
+            existing.make ?? '',
+            existing.model ?? ''
+          );
+
+          let lastOil: number;
+          if (!isEV) {
+            lastOil =
+              logs?.find((l: any) =>
+                l.service_name?.toLowerCase().includes('oil')
+              )?.mileage_at_service ?? 0;
+          } else {
+            lastOil = updates.mileage!;
+          }
 
           const lastTire = logs?.find((l: any) =>
             l.service_name?.toLowerCase().includes('tire') ||
             l.service_name?.toLowerCase().includes('tyre')
-          )?.mileage_at_service;
+          )?.mileage_at_service ?? 0;
 
           const lastBrake = logs?.find((l: any) =>
             l.service_name?.toLowerCase().includes('brake')
-          )?.mileage_at_service;
+          )?.mileage_at_service ?? 0;
 
           await scheduleWrenchyMileageAlerts(
             {

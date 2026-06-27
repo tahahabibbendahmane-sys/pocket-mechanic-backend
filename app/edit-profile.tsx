@@ -15,11 +15,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { useTheme } from '@/contexts/ThemeContext';
+import { COLORS } from '@/constants/DesignSystem';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-const BLUE = '#0567A6';
+const ACCENT = COLORS.amber;
 
 type ProfileRow = {
   first_name: string | null;
@@ -31,14 +31,13 @@ type ProfileRow = {
 export default function EditProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDark } = useTheme();
   const { user } = useAuth();
 
-  const bg = isDark ? '#0D0D0D' : '#F2F2F7';
-  const card = '#1A1A1A';
-  const border = '#2A2A2A';
-  const textPrimary = '#FFFFFF';
-  const textSecondary = '#888888';
+  const bg = COLORS.surface;
+  const card = COLORS.card;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textSecondary = COLORS.textMuted;
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -154,10 +153,10 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={['top', 'left', 'right']}>
-      <StatusBar barStyle="light-content" backgroundColor={bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top, borderBottomColor: border }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Text style={styles.headerCancel}>Cancel</Text>
         </TouchableOpacity>
@@ -170,12 +169,12 @@ export default function EditProfileScreen() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           {saving ? (
-            <ActivityIndicator size="small" color={BLUE} />
+            <ActivityIndicator size="small" color={ACCENT} />
           ) : (
             <Text
               style={[
                 styles.headerSave,
-                { color: hasChanges ? BLUE : '#555555' },
+                { color: hasChanges ? ACCENT : COLORS.textLight },
               ]}
             >
               Save
@@ -186,7 +185,7 @@ export default function EditProfileScreen() {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={BLUE} />
+          <ActivityIndicator color={ACCENT} />
         </View>
       ) : (
         <ScrollView
@@ -212,7 +211,7 @@ export default function EditProfileScreen() {
               <TextInput
                 style={[
                   styles.input,
-                  focusedField === 'firstName' && { borderColor: BLUE },
+                  focusedField === 'firstName' && { borderColor: ACCENT },
                 ]}
                 value={firstName}
                 onChangeText={setFirstName}
@@ -229,7 +228,7 @@ export default function EditProfileScreen() {
               <TextInput
                 style={[
                   styles.input,
-                  focusedField === 'lastName' && { borderColor: BLUE },
+                  focusedField === 'lastName' && { borderColor: ACCENT },
                 ]}
                 value={lastName}
                 onChangeText={setLastName}
@@ -246,7 +245,7 @@ export default function EditProfileScreen() {
               <TextInput
                 style={[
                   styles.input,
-                  focusedField === 'displayName' && { borderColor: BLUE },
+                  focusedField === 'displayName' && { borderColor: ACCENT },
                 ]}
                 value={displayName}
                 onChangeText={setDisplayName}
@@ -293,14 +292,13 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
   },
   headerCancel: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 15,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: COLORS.text,
     fontSize: 20,
     fontWeight: '700',
   },
@@ -329,18 +327,18 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: BLUE,
+    backgroundColor: COLORS.amber,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   avatarInitials: {
-    color: '#0D0D0D',
+    color: COLORS.white,
     fontSize: 28,
     fontWeight: '700',
   },
   changePhotoText: {
-    color: BLUE,
+    color: COLORS.amber,
     fontSize: 13,
   },
   card: {
@@ -352,27 +350,27 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   label: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 13,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: COLORS.border,
     borderRadius: 12,
     height: 52,
     paddingHorizontal: 16,
-    color: '#FFFFFF',
+    color: COLORS.text,
     fontSize: 15,
   },
   emailInput: {
-    backgroundColor: '#111111',
-    color: '#555555',
+    backgroundColor: COLORS.surface,
+    color: COLORS.textLight,
   },
   helperText: {
     marginTop: 6,
-    color: '#555555',
+    color: COLORS.textMuted,
     fontSize: 12,
   },
 });

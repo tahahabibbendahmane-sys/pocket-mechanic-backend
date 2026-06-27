@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedView } from '@/components/themed-view';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { COLORS } from '@/constants/DesignSystem';
 import { ThemeColors } from '@/constants/theme-enhanced';
 
 const OIL_ICON_COLOR = '#EAB308'; // Gold/Yellow for oil drop
@@ -23,8 +24,7 @@ const OIL_ICON_COLOR = '#EAB308'; // Gold/Yellow for oil drop
 export default function OilSpecsModal() {
   const router = useRouter();
   const { activeCar, updateVehicleHealth } = useActiveCar();
-  const { theme, isDark } = useTheme();
-  const colors = ThemeColors[theme];
+  const colors = ThemeColors.light;
 
   const health = activeCar?.health;
   const [editing, setEditing] = useState(false);
@@ -68,10 +68,11 @@ export default function OilSpecsModal() {
   }, [health]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#0F172A' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#94A3B8" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.textMuted} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Oil Specifications</Text>
         {!editing ? (
@@ -80,21 +81,21 @@ export default function OilSpecsModal() {
             style={styles.editBtn}
             disabled={!activeCar}
           >
-            <Text style={[styles.editBtnText, { color: activeCar ? colors.primary : '#64748B' }]}>
+            <Text style={[styles.editBtnText, { color: activeCar ? colors.primary : COLORS.textMuted }]}>
               Edit Specs
             </Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity onPress={handleCancel} style={styles.editBtn}>
-            <Text style={[styles.editBtnText, { color: '#94A3B8' }]}>Cancel</Text>
+            <Text style={[styles.editBtnText, { color: COLORS.textMuted }]}>Cancel</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {!activeCar ? (
         <ThemedView style={styles.empty}>
-          <Ionicons name="car-sport-outline" size={48} color="#475569" />
-          <Text style={[styles.emptyText, { color: '#94A3B8' }]}>
+          <Ionicons name="car-sport-outline" size={48} color={COLORS.textMuted} />
+          <Text style={[styles.emptyText, { color: COLORS.textMuted }]}>
             No active vehicle. Set one in Garage.
           </Text>
         </ThemedView>
@@ -108,30 +109,30 @@ export default function OilSpecsModal() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Oil type (e.g. 5W-30 Synthetic)</Text>
+            <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Oil type (e.g. 5W-30 Synthetic)</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: '#1E293B', color: '#F8FAFC' }]}
+              style={[styles.input, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
               value={oilType}
               onChangeText={setOilType}
               placeholder="5W-30 Synthetic"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none"
             />
-            <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Capacity (e.g. 5.7L)</Text>
+            <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Capacity (e.g. 5.7L)</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: '#1E293B', color: '#F8FAFC' }]}
+              style={[styles.input, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
               value={oilCapacity}
               onChangeText={setOilCapacity}
               placeholder="5.7 Liters"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={COLORS.textMuted}
             />
-            <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Filter part number (optional)</Text>
+            <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Filter part number (optional)</Text>
             <TextInput
-              style={[styles.input, styles.inputMono, { backgroundColor: '#1E293B', color: '#F8FAFC' }]}
+              style={[styles.input, styles.inputMono, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
               value={oilFilter}
               onChangeText={setOilFilter}
               placeholder="e.g. Fram PH3614"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={COLORS.textMuted}
               autoCapitalize="characters"
             />
             <TouchableOpacity
@@ -145,30 +146,30 @@ export default function OilSpecsModal() {
         </KeyboardAvoidingView>
       ) : !hasAnySpec ? (
         <ThemedView style={styles.empty}>
-          <View style={[styles.emptyIconWrap, { backgroundColor: '#1E293B' }]}>
+          <View style={[styles.emptyIconWrap, { backgroundColor: COLORS.surface }]}>
             <Ionicons name="water" size={56} color={OIL_ICON_COLOR} />
           </View>
-          <Text style={[styles.emptyTitle, { color: '#F8FAFC' }]}>No oil specs saved</Text>
-          <Text style={[styles.emptySub, { color: '#94A3B8' }]}>Tap Edit to add them.</Text>
+          <Text style={[styles.emptyTitle, { color: COLORS.text }]}>No oil specs saved</Text>
+          <Text style={[styles.emptySub, { color: COLORS.textMuted }]}>Tap Edit to add them.</Text>
           <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={startEdit}>
             <Text style={styles.emptyBtnText}>Edit Specs</Text>
           </TouchableOpacity>
         </ThemedView>
       ) : (
         <View style={styles.cardWrap}>
-          <View style={[styles.card, { backgroundColor: '#1E293B' }]}>
-            <View style={[styles.iconWrap, { backgroundColor: '#334155' }]}>
+          <View style={[styles.card, { backgroundColor: COLORS.card }]}>
+            <View style={[styles.iconWrap, { backgroundColor: COLORS.surface }]}>
               <Ionicons name="water" size={48} color={OIL_ICON_COLOR} />
             </View>
             <Text style={styles.cardLabel}>Digital glovebox</Text>
-            <Text style={[styles.oilType, { color: '#F8FAFC' }]}>
+            <Text style={[styles.oilType, { color: COLORS.text }]}>
               {health?.oil_type?.trim() || '—'}
             </Text>
-            <Text style={[styles.capacity, { color: '#94A3B8' }]}>
+            <Text style={[styles.capacity, { color: COLORS.textMuted }]}>
               Capacity: {health?.oil_capacity?.trim() || '—'}
             </Text>
             {health?.oil_filter_part_number?.trim() ? (
-              <Text style={[styles.filterPart, { color: '#CBD5E1' }]}>
+              <Text style={[styles.filterPart, { color: COLORS.text }]}>
                 {health.oil_filter_part_number.trim()}
               </Text>
             ) : null}
@@ -189,10 +190,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
   editBtn: { padding: 4 },
   editBtnText: { fontSize: 16, fontWeight: '600' },
   empty: {
@@ -213,21 +214,21 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '700', marginTop: 8 },
   emptySub: { fontSize: 14, marginTop: 8 },
   emptyBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 },
-  emptyBtnText: { color: '#FFF', fontWeight: '700' },
+  emptyBtnText: { color: COLORS.white, fontWeight: '700' },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
   fieldLabel: { fontSize: 12, marginBottom: 8, marginTop: 16 },
   input: { borderRadius: 10, padding: 14, fontSize: 16 },
   inputMono: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   saveBtn: { marginTop: 28, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  saveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 16 },
   cardWrap: { flex: 1, padding: 20, justifyContent: 'center' },
   card: {
     borderRadius: 20,
     padding: 28,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
   },
   iconWrap: {
     width: 80,
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  cardLabel: { fontSize: 12, color: '#64748B', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  cardLabel: { fontSize: 12, color: COLORS.textMuted, marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   oilType: { fontSize: 32, fontWeight: '800', marginBottom: 12, textAlign: 'center' },
   capacity: { fontSize: 18, marginBottom: 8 },
   filterPart: { fontSize: 16, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginTop: 8 },

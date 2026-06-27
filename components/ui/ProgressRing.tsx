@@ -7,7 +7,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { COLORS, TYPE } from '@/constants/DesignSystem';
+import { Colors, TYPE } from '@/constants/DesignSystem';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -19,10 +19,9 @@ interface ProgressRingProps {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return COLORS.xpGreen;
-  if (score >= 60) return COLORS.blue;
-  if (score >= 40) return COLORS.streakOrange;
-  return COLORS.heartRed;
+  if (score >= 80) return Colors.success;
+  if (score >= 60) return Colors.warning;
+  return Colors.danger;
 }
 
 export function ProgressRing({ score, size = 70, strokeWidth = 6, label }: ProgressRingProps) {
@@ -49,7 +48,7 @@ export function ProgressRing({ score, size = 70, strokeWidth = 6, label }: Progr
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="rgba(150,150,150,0.15)"
+          stroke={Colors.border}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -68,11 +67,11 @@ export function ProgressRing({ score, size = 70, strokeWidth = 6, label }: Progr
         />
       </Svg>
       <View style={styles.center}>
-        <Animated.Text style={[styles.score, { color }]}>
+        <Animated.Text style={[styles.score, { color: Colors.textPrimary }]}>
           {score}
         </Animated.Text>
         {label && (
-          <Animated.Text style={[styles.label, { color }]} numberOfLines={1}>
+          <Animated.Text style={[styles.label, { color: Colors.textMuted }]} numberOfLines={1}>
             {label}
           </Animated.Text>
         )}

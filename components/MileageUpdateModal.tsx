@@ -15,10 +15,11 @@ import {
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { supabase } from '@/lib/supabase';
 import { scheduleWrenchyMileageAlerts } from '@/lib/notifications';
-import { useTheme } from '@/contexts/ThemeContext';
+import { isElectricVehicle } from '@/lib/evDetection';
 import { COLORS, RADIUS, SPACING, TYPE, getColors } from '@/constants/DesignSystem';
 import { ChunkyCard } from '@/components/ui/ChunkyCard';
 import { ChunkyButton } from '@/components/ui/ChunkyButton';
+import { Ionicons } from '@expo/vector-icons';
 
 type Step = 'pick' | 'mileage';
 
@@ -28,8 +29,7 @@ interface Props {
 }
 
 export default function MileageUpdateModal({ visible, onClose }: Props) {
-  const { isDark } = useTheme();
-  const c = getColors(isDark);
+  const c = getColors();
   const { vehicles, fetchVehicles } = useActiveCar();
 
   const [step, setStep] = useState<Step>('pick');
@@ -91,9 +91,19 @@ export default function MileageUpdateModal({ visible, onClose }: Props) {
         .eq('vehicle_id', selectedVehicle.id)
         .order('created_at', { ascending: false });
 
-      const lastOil =
-        logs?.find((l: any) => l.service_name?.toLowerCase().includes('oil'))
-          ?.mileage_at_service ?? 0;
+      const isEV = isElectricVehicle(
+        selectedVehicle.make ?? '',
+        selectedVehicle.model ?? ''
+      );
+
+      let lastOil: number;
+      if (!isEV) {
+        lastOil =
+          logs?.find((l: any) => l.service_name?.toLowerCase().includes('oil'))
+            ?.mileage_at_service ?? 0;
+      } else {
+        lastOil = parsed;
+      }
 
       const lastTire =
         logs?.find(
@@ -156,7 +166,7 @@ export default function MileageUpdateModal({ visible, onClose }: Props) {
 
               {vehicleRows.length === 0 ? (
                 <View style={styles.loadingState}>
-                  <ActivityIndicator size="large" color={COLORS.blue} />
+                  <ActivityIndicator size="large" color={COLORS.primary} />
                   <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: SPACING.sm }]}>
                     Loading your vehicles...
                   </Text>
@@ -176,7 +186,7 @@ export default function MileageUpdateModal({ visible, onClose }: Props) {
                         onPress={() => handleSelectVehicle(item)}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                          <Text style={{ fontSize: 28, marginRight: SPACING.md }}>🚗</Text>
+                          <Ionicons name="car-sport-outline" size={28} color={COLORS.primary} style={{ marginRight: SPACING.md }} />
                           <View style={{ flex: 1 }}>
                             <Text style={[TYPE.h3, { color: c.text }]}>
                               {[item.year, item.make?.trim(), item.model?.trim()]
@@ -252,7 +262,7 @@ export default function MileageUpdateModal({ visible, onClose }: Props) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <ChunkyButton
-                    title={saving ? 'Saving...' : 'Update ✓'}
+                    title={saving ? 'Saving...' : 'Save'}
                     variant="primary"
                     onPress={handleUpdate}
                     disabled={saving || !mileageInput.trim()}

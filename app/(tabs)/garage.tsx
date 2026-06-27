@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { StyleSheet, ScrollView, TouchableOpacity, Alert, View, Text, StatusBar, Image, ActivityIndicator, Modal, TextInput, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -6,36 +6,33 @@ import { useFocusEffect } from '@react-navigation/native';
 
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { Vehicle } from '@/types/vehicle';
-import { hasOverdueServices, hasDueSoonServices } from '@/utils/maintenance-status';
 import { formatMileage, getUnitLabel } from '@/utils/formatting';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnits } from '@/contexts/UnitsContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickAndUploadVehiclePhoto } from '@/lib/vehiclePhoto';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { scheduleWrenchyMileageAlerts } from '@/lib/notifications';
-import { COLORS, SPACING, RADIUS, TYPE, getColors, SHADOWS } from '@/constants/DesignSystem';
-import { ChunkyCard } from '@/components/ui/ChunkyCard';
+import { COLORS, Colors, SPACING, RADIUS, TYPE, getColors, CARD_SHADOW } from '@/constants/DesignSystem';
 import { ChunkyButton } from '@/components/ui/ChunkyButton';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { calculateHealthScore } from '@/lib/healthScore';
-import { getUserAchievements, BADGES, ALL_BADGE_IDS } from '@/lib/achievements';
+import { getUserAchievements, BADGES, getEligibleBadgeIds } from '@/lib/achievements';
+import { isElectricVehicle } from '@/lib/evDetection';
 
 export default function GarageScreen() {
-  const { vehicles, activeVehicleId, activeCar, isLoading, deleteVehicle, setActiveVehicle, refreshActiveCar, updateVehicle, fetchVehicles } = useActiveCar();
+  const { vehicles, activeVehicleId, activeCar, isLoading, deleteVehicle, setActiveVehicle, refreshActiveCar, fetchVehicles } = useActiveCar();
   const { user } = useAuth();
   const { t } = useLanguage();
   const { unitSystem } = useUnits();
-  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const [forceReady, setForceReady] = useState(false);
   useEffect(() => {
-    const timeout = setTimeout(() => setForceReady(true), 6000);
+    const timeout = setTimeout(() => setForceReady(true), 5000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -53,6 +50,21 @@ export default function GarageScreen() {
   const isNavigatingRef = useRef(false);
   const displayActiveCar = activeCar || vehicles.find((v) => v.id === activeVehicleId) || null;
 
+  const sortedVehicles = useMemo(() => {
+    const list = [...vehicles];
+    list.sort((a, b) => {
+      if (a.id === activeVehicleId) return -1;
+      if (b.id === activeVehicleId) return 1;
+      return (b.year ?? 0) - (a.year ?? 0);
+    });
+    return list;
+  }, [vehicles, activeVehicleId]);
+
+  const eligibleBadgeIds = useMemo(
+    () => getEligibleBadgeIds(displayActiveCar?.make, displayActiveCar?.model),
+    [displayActiveCar?.make, displayActiveCar?.model]
+  );
+
   useFocusEffect(useCallback(() => { refreshActiveCar(); }, [refreshActiveCar]));
 
   useEffect(() => {
@@ -61,14 +73,44 @@ export default function GarageScreen() {
 
   useEffect(() => {
     const carId = displayActiveCar?.id;
-    if (!carId) { setGarageLogs([]); setGarageReminders([]); return; }
-    Promise.all([
-      supabase.from('maintenance_logs').select('*').eq('vehicle_id', carId).order('created_at', { ascending: false }),
-      supabase.from('maintenance_reminders').select('*').eq('vehicle_id', carId).eq('is_completed', false),
-    ]).then(([{ data: logs }, { data: rem }]) => {
-      setGarageLogs(logs ?? []);
-      setGarageReminders(rem ?? []);
-    }).catch(() => { setGarageLogs([]); setGarageReminders([]); });
+    if (!carId) {
+      setGarageLogs([]);
+      setGarageReminders([]);
+      return;
+    }
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setGarageLogs([]);
+        setGarageReminders([]);
+      }
+    }, 5000);
+    (async () => {
+      try {
+        const [{ data: logs, error: e1 }, { data: rem, error: e2 }] = await Promise.all([
+          supabase.from('maintenance_logs').select('*').eq('vehicle_id', carId).order('created_at', { ascending: false }),
+          supabase.from('maintenance_reminders').select('*').eq('vehicle_id', carId).eq('is_completed', false),
+        ]);
+        if (e1) throw e1;
+        if (e2) throw e2;
+        if (!cancelled) {
+          setGarageLogs(logs ?? []);
+          setGarageReminders(rem ?? []);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setGarageLogs([]);
+          setGarageReminders([]);
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [displayActiveCar?.id]);
 
   const handleAddVehicle = useCallback(() => {
@@ -95,7 +137,13 @@ export default function GarageScreen() {
     const { error } = await supabase.from('vehicles').update({ current_mileage: parsed }).eq('id', editingVehicle.id);
     if (error) { Alert.alert('Error', error.message || 'Could not update mileage.'); setSavingMileage(false); return; }
     const { data: logs } = await supabase.from('maintenance_logs').select('service_name, mileage_at_service').eq('vehicle_id', editingVehicle.id).order('created_at', { ascending: false });
-    const lastOil = logs?.find((l: any) => l.service_name?.toLowerCase().includes('oil'))?.mileage_at_service ?? 0;
+    const isEV = isElectricVehicle(editingVehicle.make ?? '', editingVehicle.model ?? '');
+    let lastOil: number;
+    if (!isEV) {
+      lastOil = logs?.find((l: any) => l.service_name?.toLowerCase().includes('oil'))?.mileage_at_service ?? 0;
+    } else {
+      lastOil = parsed;
+    }
     const lastTire = logs?.find((l: any) => l.service_name?.toLowerCase().includes('tire') || l.service_name?.toLowerCase().includes('tyre'))?.mileage_at_service ?? 0;
     const lastBrake = logs?.find((l: any) => l.service_name?.toLowerCase().includes('brake'))?.mileage_at_service ?? 0;
     await scheduleWrenchyMileageAlerts({ ...editingVehicle, mileage: parsed }, { oil: lastOil, tire: lastTire, brake: lastBrake });
@@ -138,142 +186,166 @@ export default function GarageScreen() {
     setUploadingVehicleId(null);
   }, [user?.id, fetchVehicles]);
 
-  const otherVehicles = vehicles.filter((v) => v.id !== activeVehicleId);
-
   if (isLoading && !forceReady) {
     return (
-      <View style={[styles.container, { backgroundColor: c.background, paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color={COLORS.blue} size="large" />
-        <Text style={[TYPE.body, { color: c.textMuted, marginTop: SPACING.md }]}>{t.garage.loading || 'Loading your garage...'}</Text>
+      <View style={[styles.container, { backgroundColor: Colors.background, paddingTop: insets.top, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+        <Text style={[TYPE.body, { color: COLORS.textMuted, marginTop: SPACING.md }]}>{t.garage.loading || 'Loading your garage...'}</Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: c.background, paddingTop: insets.top }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
+    <View style={[styles.container, { backgroundColor: Colors.background, paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={[TYPE.displayMD, { color: c.text }]}>My Garage</Text>
-        <TouchableOpacity
-          onPress={handleAddVehicle}
-          style={[styles.addBtn, { backgroundColor: COLORS.blue }]}
-          disabled={isLoading || isNavigatingRef.current}
-        >
-          <Ionicons name="add" size={22} color="#000" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Garage</Text>
       </View>
 
       {vehicles.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={{ fontSize: 64 }}>🚗</Text>
+          <Ionicons name="car-sport-outline" size={64} color={Colors.primary} />
           <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.xl }]}>{t.garage.empty}</Text>
           <Text style={[TYPE.body, { color: c.textSecondary, marginTop: SPACING.sm, textAlign: 'center', maxWidth: 260 }]}>
             {t.garage.emptySubtext}
           </Text>
-          <ChunkyButton title={t.garage.addVehicle} onPress={handleAddVehicle} style={{ marginTop: SPACING.xxl, width: '100%' }} />
+          <TouchableOpacity style={styles.addVehicleBtn} onPress={handleAddVehicle} activeOpacity={0.85}>
+            <Text style={styles.addVehicleBtnText}>+ Add Vehicle</Text>
+          </TouchableOpacity>
         </View>
       ) : (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
-          {/* Active Vehicle Hero */}
-          {displayActiveCar && (
-            <ChunkyCard
-              noPadding
-              style={styles.heroCard}
-              onPress={() => router.push({ pathname: '/vehicle-detail', params: { vehicleId: displayActiveCar.id } })}
-            >
-              {/* Photo */}
-              <Pressable onPress={(e) => { e.stopPropagation?.(); handleVehiclePhotoPress(displayActiveCar); }}>
-                {localPhotoUrls[displayActiveCar.id] || displayActiveCar.photo_url ? (
-                  <Image
-                    source={{ uri: localPhotoUrls[displayActiveCar.id] || (displayActiveCar.photo_url + '?t=' + photoRefreshKey) }}
-                    style={styles.heroPhoto}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View style={[styles.heroPhotoPlaceholder, { backgroundColor: isDark ? '#1C1C1C' : '#F0EDE6' }]}>
-                    <Ionicons name="camera-outline" size={36} color={c.textMuted} />
-                    <Text style={[TYPE.bodySM, { color: c.textMuted, marginTop: 4 }]}>Add Photo</Text>
-                  </View>
-                )}
-                {displayActiveCar.photo_url && (
-                  <View style={styles.cameraBtn}>
-                    <Ionicons name="camera" size={16} color="#FFF" />
-                  </View>
-                )}
-                {uploadingVehicleId === displayActiveCar.id && (
-                  <View style={styles.uploadOverlay}>
-                    <ActivityIndicator size="large" color={COLORS.blue} />
-                    <Text style={[TYPE.bodySM, { color: '#FFF', marginTop: 8 }]}>Uploading...</Text>
-                  </View>
-                )}
-              </Pressable>
+        <ScrollView style={styles.list} contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + SPACING.xxl }]} showsVerticalScrollIndicator={false}>
+          {sortedVehicles.map((vehicle) => {
+            const isActive = vehicle.id === activeVehicleId;
+            const logs = isActive ? garageLogs : [];
+            const reminders = isActive ? garageReminders : [];
+            const score = calculateHealthScore(vehicle, logs, reminders).score;
 
-              {/* Content */}
-              <View style={styles.heroContent}>
-                <View style={styles.heroHeaderRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[TYPE.h1, { color: c.text }]}>
-                      {[displayActiveCar.make?.trim(), displayActiveCar.model?.trim()].filter(Boolean).join(' ') || t.garage.unknown}
-                    </Text>
-                    <Text style={[TYPE.body, { color: c.textSecondary, marginTop: 2 }]}>
-                      {displayActiveCar.make} · {displayActiveCar.year}
-                    </Text>
-                  </View>
-                  <View style={styles.activePill}>
-                    <View style={styles.activePillDot} />
-                    <Text style={styles.activePillText}>Active</Text>
-                  </View>
-                </View>
+            return (
+              <View key={vehicle.id} style={styles.vehicleCard}>
+                <TouchableOpacity
+                  activeOpacity={0.92}
+                  onPress={() => router.push({ pathname: '/vehicle-detail', params: { vehicleId: vehicle.id } })}
+                >
+                  <View style={styles.vehicleTop}>
+                    <Pressable
+                      onPress={(e) => { e.stopPropagation?.(); handleVehiclePhotoPress(vehicle); }}
+                      style={styles.thumbWrap}
+                    >
+                      {localPhotoUrls[vehicle.id] || vehicle.photo_url ? (
+                        <Image
+                          source={{ uri: localPhotoUrls[vehicle.id] || (vehicle.photo_url + '?t=' + photoRefreshKey) }}
+                          style={styles.thumb}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.thumbPlaceholder}>
+                          <Ionicons name="car-sport-outline" size={28} color={Colors.textMuted} />
+                        </View>
+                      )}
+                      {uploadingVehicleId === vehicle.id && (
+                        <View style={styles.uploadOverlay}>
+                          <ActivityIndicator color={Colors.primary} />
+                        </View>
+                      )}
+                    </Pressable>
 
-                {/* Mileage */}
-                <TouchableOpacity onPress={() => openMileageEditor(displayActiveCar)} style={styles.mileageRow}>
-                  <Ionicons name="speedometer-outline" size={16} color={COLORS.blue} />
-                  <Text style={[TYPE.body, { color: c.textSecondary }]}>
-                    {formatMileage(displayActiveCar.mileage ?? 0, unitSystem)} {getUnitLabel(unitSystem)}
-                  </Text>
-                  <Ionicons name="pencil-outline" size={14} color={c.textMuted} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.vehicleName}>
+                        {[vehicle.make?.trim(), vehicle.model?.trim()].filter(Boolean).join(' ') || t.garage.unknown}
+                      </Text>
+                      <Text style={styles.vehicleYearMileage}>
+                        {vehicle.year} · {formatMileage(vehicle.mileage ?? 0, unitSystem)} {getUnitLabel(unitSystem)}
+                      </Text>
+                      <View style={styles.pillRow}>
+                        {isActive && (
+                          <View style={styles.activeBadge}>
+                            <Text style={styles.activeBadgeText}>Active</Text>
+                          </View>
+                        )}
+                      </View>
+                      <TouchableOpacity onPress={(e) => { e.stopPropagation?.(); openMileageEditor(vehicle); }} style={styles.mileageRow}>
+                        <Ionicons name="speedometer-outline" size={16} color={Colors.textMuted} />
+                        <Text style={styles.mileageText}>
+                          {formatMileage(vehicle.mileage ?? 0, unitSystem)} {getUnitLabel(unitSystem)}
+                        </Text>
+                        <Ionicons name="pencil-outline" size={14} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+
+                    <ProgressRing score={score} size={44} strokeWidth={4} />
+                  </View>
                 </TouchableOpacity>
 
-                {/* Stats grid */}
-                <View style={styles.statsGrid}>
-                  <View style={styles.gridItem}>
-                    <Text style={[TYPE.labelSM, { color: c.textMuted }]}>HEALTH</Text>
-                    <ProgressRing score={calculateHealthScore(displayActiveCar, garageLogs, garageReminders).score} size={50} strokeWidth={4} />
-                  </View>
-                  <View style={styles.gridItem}>
-                    <Text style={[TYPE.labelSM, { color: c.textMuted }]}>SERVICES</Text>
-                    <Text style={[TYPE.statSM, { color: c.text }]}>—</Text>
-                  </View>
-                </View>
-
-                {/* Action buttons */}
-                <View style={styles.actionRow}>
-                  <ChunkyButton title="Check Recalls" variant="ghost" small
-                    icon={<Ionicons name="warning-outline" size={14} color={COLORS.blue} />}
-                    onPress={() => router.push({ pathname: '/recalls', params: { make: displayActiveCar.make, model: displayActiveCar.model, year: String(displayActiveCar.year ?? '') } })}
-                  />
-                  <ChunkyButton title="Edit" variant="ghost" small
-                    icon={<Ionicons name="pencil-outline" size={14} color={COLORS.blue} />}
-                    onPress={() => handleEditVehicle(displayActiveCar)}
-                  />
+                <View style={styles.cardActions}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderWidth: 0.5,
+                      borderColor: '#E2E6EA',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    }}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/recalls',
+                        params: { make: vehicle.make, model: vehicle.model, year: String(vehicle.year ?? '') },
+                      })
+                    }
+                  >
+                    <Text style={{ color: '#6B7280', fontFamily: 'Outfit_500Medium', fontSize: 13 }}>Recalls</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: 'transparent',
+                      borderWidth: 0.5,
+                      borderColor: '#E2E6EA',
+                      borderRadius: 8,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                    }}
+                    onPress={() => handleEditVehicle(vehicle)}
+                  >
+                    <Text style={{ color: '#1A6FBF', fontFamily: 'Outfit_500Medium', fontSize: 13 }}>Edit</Text>
+                  </TouchableOpacity>
+                  {!isActive && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#EBF3FC',
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}
+                      onPress={() => handleSetActive(vehicle.id)}
+                    >
+                      <Text style={{ color: '#1A6FBF', fontFamily: 'Outfit_500Medium', fontSize: 13 }}>Set active</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => handleDeleteVehicle(vehicle)}
+                    style={{ justifyContent: 'center', alignItems: 'center', padding: 8 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#DC2626" />
+                  </TouchableOpacity>
                 </View>
               </View>
-            </ChunkyCard>
-          )}
+            );
+          })}
 
-          {/* Achievements Showcase */}
           {earnedBadges.length > 0 && (
             <>
               <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.xl, marginBottom: SPACING.md }]}>Achievements</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll} contentContainerStyle={styles.badgesRow}>
-                {ALL_BADGE_IDS.map((id) => {
+                {eligibleBadgeIds.map((id) => {
                   const badge = BADGES[id];
                   const earned = earnedBadges.includes(id);
                   return (
                     <View key={id} style={[styles.badgeCircle, !earned && styles.badgeLocked]}>
-                      <Text style={[styles.badgeEmoji, !earned && { opacity: 0.3 }]}>{badge.emoji}</Text>
+                      <Ionicons name={earned ? 'ribbon-outline' : 'lock-closed-outline'} size={26} color={earned ? Colors.primary : Colors.textMuted} />
                       <Text style={[TYPE.labelSM, { color: earned ? c.text : c.textMuted, marginTop: 4, textAlign: 'center' }]} numberOfLines={1}>
                         {badge.title}
                       </Text>
@@ -284,60 +356,20 @@ export default function GarageScreen() {
             </>
           )}
 
-          {/* Other Vehicles */}
-          {otherVehicles.length > 0 && (
-            <>
-              <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.xl, marginBottom: SPACING.md }]}>Other Vehicles</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.otherScroll} contentContainerStyle={styles.otherScrollContent}>
-                {otherVehicles.map((vehicle) => (
-                  <ChunkyCard
-                    key={vehicle.id}
-                    noPadding
-                    style={styles.otherCard}
-                    onPress={() => router.push({ pathname: '/vehicle-detail', params: { vehicleId: vehicle.id } })}
-                  >
-                    {localPhotoUrls[vehicle.id] || vehicle.photo_url ? (
-                      <Image source={{ uri: localPhotoUrls[vehicle.id] || vehicle.photo_url || '' }} style={styles.otherPhoto} resizeMode="cover" />
-                    ) : (
-                      <View style={[styles.otherPhotoPlaceholder, { backgroundColor: isDark ? '#1C1C1C' : '#F0EDE6' }]}>
-                        <Text style={{ fontSize: 32 }}>🚗</Text>
-                      </View>
-                    )}
-                    <View style={styles.otherContent}>
-                      <Text style={[TYPE.h3, { color: c.text }]} numberOfLines={1}>
-                        {[vehicle.make?.trim(), vehicle.model?.trim()].filter(Boolean).join(' ')}
-                      </Text>
-                      <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>{vehicle.year}</Text>
-                      <View style={styles.otherActions}>
-                        <TouchableOpacity onPress={() => handleSetActive(vehicle.id)} style={[styles.miniBtn, { backgroundColor: COLORS.blue + '20' }]}>
-                          <Ionicons name="star-outline" size={14} color={COLORS.blue} />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeleteVehicle(vehicle)} style={[styles.miniBtn, { backgroundColor: COLORS.heartRed + '20' }]}>
-                          <Ionicons name="trash-outline" size={14} color={COLORS.heartRed} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </ChunkyCard>
-                ))}
-                {/* Add new vehicle card */}
-                <ChunkyCard style={styles.addNewCard} variant="blue" onPress={handleAddVehicle}>
-                  <Ionicons name="add" size={32} color="#000" />
-                  <Text style={[TYPE.label, { color: '#000', marginTop: 4 }]}>Add Vehicle</Text>
-                </ChunkyCard>
-              </ScrollView>
-            </>
-          )}
+          <TouchableOpacity style={styles.addVehicleBtn} onPress={handleAddVehicle} activeOpacity={0.85}>
+            <Text style={styles.addVehicleBtnText}>+ Add Vehicle</Text>
+          </TouchableOpacity>
 
-          <View style={{ height: SPACING.xxxl }} />
+          <View style={{ height: SPACING.md }} />
         </ScrollView>
       )}
 
-      {/* Mileage Modal */}
       <Modal visible={mileageModalVisible} transparent animationType="fade" onRequestClose={() => setMileageModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[TYPE.h2, { color: c.text, marginBottom: 4 }]}>Update Mileage</Text>
-            <Text style={[TYPE.bodySM, { color: c.textSecondary, marginBottom: SPACING.xl }]}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+            <Text style={[TYPE.h2, { color: COLORS.text, marginBottom: 4 }]}>Update Mileage</Text>
+            <Text style={[TYPE.bodySM, { color: COLORS.textMuted, marginBottom: SPACING.xl }]}>
               {editingVehicle?.year} {editingVehicle?.make?.trim()} {editingVehicle?.model?.trim()}
             </Text>
             <TextInput
@@ -345,15 +377,15 @@ export default function GarageScreen() {
               onChangeText={setNewMileage}
               keyboardType="numeric"
               placeholder="Enter current mileage"
-              placeholderTextColor={c.textMuted}
-              style={[styles.mileageInput, { backgroundColor: c.background, borderColor: COLORS.blue, color: c.text }]}
+              placeholderTextColor={COLORS.textLight}
+              style={styles.mileageInput}
             />
-            <Text style={[TYPE.bodySM, { color: c.textMuted, textAlign: 'center', marginBottom: SPACING.xl }]}>
+            <Text style={[TYPE.bodySM, { color: COLORS.textMuted, textAlign: 'center', marginBottom: SPACING.xl }]}>
               Current: {editingVehicle ? editingVehicle.mileage.toLocaleString() : '—'} {getUnitLabel(unitSystem)}
             </Text>
             <ChunkyButton title={savingMileage ? 'Saving...' : 'Save Mileage'} onPress={saveMileage} disabled={savingMileage} />
             <TouchableOpacity onPress={() => setMileageModalVisible(false)} style={{ alignItems: 'center', padding: SPACING.md, marginTop: SPACING.sm }}>
-              <Text style={[TYPE.body, { color: c.textMuted }]}>Cancel</Text>
+              <Text style={[TYPE.body, { color: COLORS.textMuted }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -364,47 +396,77 @@ export default function GarageScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md },
-  addBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 2.5, borderBottomWidth: 4, borderColor: COLORS.blueDark },
+  header: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md },
+  headerTitle: { fontFamily: 'Outfit_700Bold', fontSize: 26, color: Colors.textPrimary },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm, paddingBottom: SPACING.xxl },
-
+  listContent: { paddingHorizontal: SPACING.xl, paddingTop: SPACING.sm },
   emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xl },
 
-  heroCard: { marginBottom: SPACING.md },
-  heroPhoto: { width: '100%', height: 200, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2 },
-  heroPhotoPlaceholder: { width: '100%', height: 160, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2, alignItems: 'center', justifyContent: 'center' },
-  cameraBtn: { position: 'absolute', top: SPACING.sm, right: SPACING.sm, width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  uploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2 },
-  heroContent: { padding: SPACING.xl, gap: SPACING.md },
-  heroHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  activePill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.xpGreen, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  activePillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFF' },
-  activePillText: { ...TYPE.labelSM, color: '#FFF' },
-  mileageRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-
-  statsGrid: { flexDirection: 'row', gap: SPACING.md },
-  gridItem: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: SPACING.sm, borderRadius: RADIUS.sm },
-
-  actionRow: { flexDirection: 'row', gap: SPACING.sm },
+  vehicleCard: {
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    padding: SPACING.lg,
+    marginBottom: SPACING.md,
+    backgroundColor: Colors.surface,
+    ...CARD_SHADOW,
+  },
+  vehicleTop: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md },
+  thumbWrap: { width: 70, height: 70, borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.surfaceSecondary },
+  thumb: { width: '100%', height: '100%' },
+  thumbPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surfaceSecondary },
+  uploadOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,0.85)', justifyContent: 'center', alignItems: 'center' },
+  vehicleName: { fontFamily: 'Outfit_600SemiBold', fontSize: 16, color: Colors.textPrimary },
+  vehicleYearMileage: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.textMuted, marginTop: 4 },
+  pillRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.sm },
+  activeBadge: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeBadgeText: { fontFamily: 'Outfit_600SemiBold', fontSize: 12, color: Colors.primary },
+  mileageRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs, marginTop: SPACING.sm },
+  mileageText: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.textMuted },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.md },
 
   badgesScroll: { marginLeft: -SPACING.xl },
   badgesRow: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
   badgeCircle: { width: 64, alignItems: 'center' },
   badgeLocked: { opacity: 0.5 },
-  badgeEmoji: { fontSize: 28 },
 
-  otherScroll: { marginLeft: -SPACING.xl },
-  otherScrollContent: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
-  otherCard: { width: 160 },
-  otherPhoto: { width: '100%', height: 100, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2 },
-  otherPhotoPlaceholder: { width: '100%', height: 100, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2, alignItems: 'center', justifyContent: 'center' },
-  otherContent: { padding: SPACING.md, gap: 2 },
-  otherActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  miniBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  addNewCard: { width: 120, alignItems: 'center', justifyContent: 'center', paddingVertical: SPACING.xxxl },
+  addVehicleBtn: {
+    marginTop: SPACING.lg,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    width: '100%',
+  },
+  addVehicleBtnText: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: Colors.surface },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xxl },
-  modalContent: { borderRadius: RADIUS.lg, borderWidth: 2.5, borderBottomWidth: 5, padding: SPACING.xxl, width: '100%' },
-  mileageInput: { borderWidth: 2, borderRadius: RADIUS.sm, padding: SPACING.md, fontSize: 20, fontFamily: 'Outfit_700Bold', marginBottom: SPACING.sm, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: SPACING.xxl,
+    paddingBottom: SPACING.xxxl,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderBottomWidth: 0,
+  },
+  modalHandle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.border, marginBottom: SPACING.lg },
+  mileageInput: {
+    borderWidth: 2,
+    borderRadius: RADIUS.sm,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    fontSize: 20,
+    fontFamily: 'Outfit_700Bold',
+    marginBottom: SPACING.sm,
+    textAlign: 'center',
+    color: COLORS.text,
+    backgroundColor: COLORS.surface,
+  },
 });

@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -17,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useTheme } from '@/contexts/ThemeContext';
+import { COLORS } from '@/constants/DesignSystem';
 import { ThemeColors } from '@/constants/theme-enhanced';
 const PSI_TOLERANCE_OK = 2;
 const PSI_TOLERANCE_WARN = 5;
@@ -53,8 +54,7 @@ function getStatusColor(
 export default function TirePressureModal() {
   const router = useRouter();
   const { activeCar, updateVehicleHealth } = useActiveCar();
-  const { theme, isDark } = useTheme();
-  const colors = ThemeColors[theme];
+  const colors = ThemeColors.light;
 
   const health = activeCar?.health;
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -115,7 +115,7 @@ const tireLabel = (key: TireKey): string => {
     return (
       <TouchableOpacity
         key={key}
-        style={[styles.tireBox, { backgroundColor: isDark ? '#334155' : '#1E293B', borderColor: color }]}
+        style={[styles.tireBox, { backgroundColor: COLORS.surface, borderColor: color }]}
         onPress={() => openTireEdit(key)}
         activeOpacity={0.8}
       >
@@ -140,38 +140,44 @@ const tireLabel = (key: TireKey): string => {
   const lastUpdatedText = hasAnyTireData ? 'Last updated when values were set' : 'No data yet — tap tires to set';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#0F172A' : '#0F172A' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#94A3B8" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.textMuted} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#F8FAFC' }]}>{'Tire Pressure Monitor'}</Text>
+        <Text style={[styles.headerTitle, { color: COLORS.text }]}>{'Tire Pressure Monitor'}</Text>
         <View style={styles.headerRight} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <View style={styles.lastUpdatedRow}>
-          <Ionicons name="time-outline" size={14} color="#94A3B8" />
+          <Ionicons name="time-outline" size={14} color={COLORS.textMuted} />
           <ThemedText style={styles.lastUpdated}>{lastUpdatedText}</ThemedText>
         </View>
 
         {!activeCar ? (
           <ThemedView style={styles.noCar}>
-            <Ionicons name="car-sport-outline" size={48} color="#475569" />
-            <Text style={[styles.noCarText, { color: '#94A3B8' }]}>
+            <Ionicons name="car-sport-outline" size={48} color={COLORS.textMuted} />
+            <Text style={[styles.noCarText, { color: COLORS.textMuted }]}>
               No active vehicle. Set one in Garage.
             </Text>
           </ThemedView>
         ) : (
           <>
             {/* Recommended targets */}
-            <View style={[styles.targetsRow, { backgroundColor: isDark ? '#1E293B' : '#1E293B' }]}>
+            <View
+              style={[
+                styles.targetsRow,
+                { backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+              ]}
+            >
               <TouchableOpacity
                 style={styles.targetBlock}
                 onPress={() => openTargetEdit('recommended_psi_front')}
               >
-                <Text style={[styles.targetLabel, { color: '#94A3B8' }]}>{'Target Front'}</Text>
-                <Text style={[styles.targetValue, { color: '#F8FAFC' }]}>
+                <Text style={[styles.targetLabel, { color: COLORS.textMuted }]}>{'Target Front'}</Text>
+                <Text style={[styles.targetValue, { color: COLORS.text }]}>
                   {recommendedFront != null ? `${recommendedFront} PSI` : 'Set'}
                 </Text>
               </TouchableOpacity>
@@ -179,8 +185,8 @@ const tireLabel = (key: TireKey): string => {
                 style={styles.targetBlock}
                 onPress={() => openTargetEdit('recommended_psi_rear')}
               >
-                <Text style={[styles.targetLabel, { color: '#94A3B8' }]}>{'Target Rear'}</Text>
-                <Text style={[styles.targetValue, { color: '#F8FAFC' }]}>
+                <Text style={[styles.targetLabel, { color: COLORS.textMuted }]}>{'Target Rear'}</Text>
+                <Text style={[styles.targetValue, { color: COLORS.text }]}>
                   {recommendedRear != null ? `${recommendedRear} PSI` : 'Set'}
                 </Text>
               </TouchableOpacity>
@@ -192,9 +198,9 @@ const tireLabel = (key: TireKey): string => {
                 {renderTire('tire_psi_fl', recommendedFront)}
                 {renderTire('tire_psi_fr', recommendedFront)}
               </View>
-              <View style={[styles.carBody, { backgroundColor: isDark ? '#334155' : '#334155' }]}>
-                <Ionicons name="car-sport" size={32} color="#64748B" />
-                <Text style={[styles.carBodyText, { color: '#94A3B8' }]}>Vehicle</Text>
+              <View style={[styles.carBody, { backgroundColor: COLORS.surface }]}>
+                <Ionicons name="car-sport" size={32} color={COLORS.textMuted} />
+                <Text style={[styles.carBodyText, { color: COLORS.textMuted }]}>Vehicle</Text>
               </View>
               <View style={styles.tireRow}>
                 {renderTire('tire_psi_rl', recommendedRear)}
@@ -205,15 +211,15 @@ const tireLabel = (key: TireKey): string => {
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
-                <Text style={[styles.legendText, { color: '#94A3B8' }]}>Within ±2 PSI</Text>
+                <Text style={[styles.legendText, { color: COLORS.textMuted }]}>Within ±2 PSI</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.warning }]} />
-                <Text style={[styles.legendText, { color: '#94A3B8' }]}>±3–5 PSI</Text>
+                <Text style={[styles.legendText, { color: COLORS.textMuted }]}>±3–5 PSI</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: colors.error }]} />
-                <Text style={[styles.legendText, { color: '#94A3B8' }]}>&gt;5 PSI off</Text>
+                <Text style={[styles.legendText, { color: COLORS.textMuted }]}>&gt;5 PSI off</Text>
               </View>
             </View>
           </>
@@ -225,16 +231,16 @@ const tireLabel = (key: TireKey): string => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1E293B' : '#1E293B' }]}>
+          <View style={[styles.modalContent, { backgroundColor: COLORS.card }]}>
             <ThemedText style={styles.modalTitle}>
               {getModalTitle(editTarget)}
             </ThemedText>
             <TextInput
-              style={[styles.modalInput, { backgroundColor: '#0F172A', color: '#F8FAFC' }]}
+              style={[styles.modalInput, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
               value={editValue}
               onChangeText={setEditValue}
               placeholder="e.g. 32"
-              placeholderTextColor="#64748B"
+              placeholderTextColor={COLORS.textMuted}
               keyboardType="number-pad"
               maxLength={3}
             />
@@ -266,7 +272,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 18, fontWeight: '700' },
@@ -279,13 +285,13 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 20,
   },
-  lastUpdated: { fontSize: 12, color: '#94A3B8' },
+  lastUpdated: { fontSize: 12, color: COLORS.textMuted },
   noCar: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 48,
   },
-  noCarText: { marginTop: 12, color: '#94A3B8', fontSize: 14 },
+  noCarText: { marginTop: 12, color: COLORS.textMuted, fontSize: 14 },
   targetsRow: {
     flexDirection: 'row',
     borderRadius: 12,
@@ -317,11 +323,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  carBodyText: { fontSize: 12, color: '#94A3B8', marginTop: 6 },
+  carBodyText: { fontSize: 12, color: COLORS.textMuted, marginTop: 6 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 20, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: '#94A3B8' },
+  legendText: { fontSize: 12, color: COLORS.textMuted },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
@@ -329,7 +335,7 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   modalContent: { borderRadius: 16, padding: 24 },
-  modalTitle: { fontSize: 16, fontWeight: '600', marginBottom: 16, color: '#F8FAFC' },
+  modalTitle: { fontSize: 16, fontWeight: '600', marginBottom: 16, color: COLORS.text },
   modalInput: {
     borderRadius: 10,
     padding: 14,
@@ -338,9 +344,9 @@ const styles = StyleSheet.create({
   },
   modalActions: { flexDirection: 'row', gap: 12, justifyContent: 'flex-end' },
   modalBtnCancel: { paddingVertical: 12, paddingHorizontal: 20 },
-  modalBtnCancelText: { color: '#94A3B8', fontWeight: '600' },
+  modalBtnCancelText: { color: COLORS.textMuted, fontWeight: '600' },
   modalBtnSave: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10 },
-  modalBtnSaveText: { color: '#FFF', fontWeight: '700' },
+  modalBtnSaveText: { color: COLORS.white, fontWeight: '700' },
 });
 
 /*

@@ -2,8 +2,8 @@ import { StyleSheet, View, Text, ScrollView, TouchableOpacity, StatusBar, Platfo
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { COLORS } from '@/constants/DesignSystem';
 
 const BLUE = '#0567A6';
 
@@ -45,19 +45,18 @@ const SECTIONS = [
 export default function TermsOfServiceScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDark } = useTheme();
   const { t } = useLanguage();
 
-  const bg = isDark ? '#0D0D0D' : '#F2F2F7';
-  const surface = isDark ? '#0D0D0D' : '#FFFFFF';
-  const border = isDark ? '#2A2A2A' : '#E5E5EA';
-  const textPrimary = isDark ? '#FFFFFF' : '#000000';
-  const textBody = isDark ? '#888888' : '#6C6C70';
-  const textDim = isDark ? '#555555' : '#AEAEB2';
+  const bg = COLORS.surface;
+  const surface = COLORS.background;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textBody = COLORS.textMuted;
+  const textDim = COLORS.textLight;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       <View style={[styles.header, { backgroundColor: surface, borderBottomColor: border, paddingTop: Platform.OS === 'ios' ? insets.top + 4 : 16 }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>

@@ -10,6 +10,7 @@ import {
   Platform,
   FlatList,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -18,8 +19,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useUnits } from '@/contexts/UnitsContext';
+import { COLORS } from '@/constants/DesignSystem';
 import { ThemeColors } from '@/constants/theme-enhanced';
 import { formatDate, formatMileage, getUnitLabel } from '@/utils/formatting';
 import type { ServiceLog, ServiceTypeLabel } from '@/types/service';
@@ -39,9 +40,8 @@ function toDateOnly(d: Date): string {
 export default function HistoryModal() {
   const router = useRouter();
   const { activeCar, serviceLogs, addServiceLog, fetchServiceLogs } = useActiveCar();
-  const { theme, isDark } = useTheme();
   const { unitSystem } = useUnits();
-  const colors = ThemeColors[theme];
+  const colors = ThemeColors.light;
 
   const [addVisible, setAddVisible] = useState(false);
   const [serviceType, setServiceType] = useState<ServiceTypeLabel>('Oil Change');
@@ -98,12 +98,12 @@ export default function HistoryModal() {
 
   const renderCard = useCallback(
     ({ item }: { item: ServiceLog }) => (
-      <View style={[styles.card, { backgroundColor: isDark ? '#1E293B' : '#1E293B' }]}>
+      <View style={[styles.card, { backgroundColor: COLORS.card }]}>
         <View style={styles.cardRow}>
           <View style={styles.cardLeft}>
             <ThemedText style={styles.cardDate}>{formatDate(item.date)}</ThemedText>
-            <ThemedText style={[styles.cardType, { color: '#F8FAFC' }]}>{item.service_type}</ThemedText>
-            <ThemedText style={[styles.cardMileage, { color: '#94A3B8' }]}>
+            <ThemedText style={[styles.cardType, { color: COLORS.text }]}>{item.service_type}</ThemedText>
+            <ThemedText style={[styles.cardMileage, { color: COLORS.textMuted }]}>
               {formatMileage(item.mileage, unitSystem)} {unitLabel}
             </ThemedText>
           </View>
@@ -112,41 +112,42 @@ export default function HistoryModal() {
           )}
         </View>
         {item.notes ? (
-          <Text style={[styles.cardNotes, { color: '#94A3B8' }]} numberOfLines={2}>
+          <Text style={[styles.cardNotes, { color: COLORS.textMuted }]} numberOfLines={2}>
             {item.notes}
           </Text>
         ) : null}
       </View>
     ),
-    [isDark, unitSystem, unitLabel, colors.success]
+    [unitSystem, unitLabel, colors.success]
   );
 
   const keyExtractor = useCallback((item: ServiceLog) => item.id, []);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#0F172A' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#94A3B8" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.textMuted} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Service History</Text>
         <TouchableOpacity onPress={openAdd} style={styles.addBtn} disabled={!activeCar}>
-          <Ionicons name="add" size={26} color={activeCar ? colors.primary : '#64748B'} />
+          <Ionicons name="add" size={26} color={activeCar ? colors.primary : COLORS.textMuted} />
         </TouchableOpacity>
       </View>
 
       {!activeCar ? (
         <ThemedView style={styles.empty}>
-          <Ionicons name="car-sport-outline" size={48} color="#475569" />
-          <Text style={[styles.emptyText, { color: '#94A3B8' }]}>
+          <Ionicons name="car-sport-outline" size={48} color={COLORS.textMuted} />
+          <Text style={[styles.emptyText, { color: COLORS.textMuted }]}>
             No active vehicle. Set one in Garage.
           </Text>
         </ThemedView>
       ) : serviceLogs.length === 0 ? (
         <ThemedView style={styles.empty}>
-          <Ionicons name="document-text-outline" size={56} color="#475569" />
-          <Text style={[styles.emptyTitle, { color: '#F8FAFC' }]}>No service history yet</Text>
-          <Text style={[styles.emptySub, { color: '#94A3B8' }]}>Tap + to log maintenance</Text>
+          <Ionicons name="document-text-outline" size={56} color={COLORS.textMuted} />
+          <Text style={[styles.emptyTitle, { color: COLORS.text }]}>No service history yet</Text>
+          <Text style={[styles.emptySub, { color: COLORS.textMuted }]}>Tap + to log maintenance</Text>
           <TouchableOpacity style={[styles.emptyBtn, { backgroundColor: colors.primary }]} onPress={openAdd}>
             <Text style={styles.emptyBtnText}>Add Service</Text>
           </TouchableOpacity>
@@ -166,16 +167,16 @@ export default function HistoryModal() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={[styles.modalSheet, { backgroundColor: '#1E293B' }]}>
+          <View style={[styles.modalSheet, { backgroundColor: COLORS.card }]}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Log Service</Text>
               <TouchableOpacity onPress={() => setAddVisible(false)}>
-                <Ionicons name="close" size={24} color="#94A3B8" />
+                <Ionicons name="close" size={24} color={COLORS.textMuted} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalScroll} keyboardShouldPersistTaps="handled">
-              <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Service type</Text>
+              <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Service type</Text>
               <View style={styles.pillRow}>
                 {SERVICE_TYPES.map(({ label, icon }) => (
                   <TouchableOpacity
@@ -189,12 +190,12 @@ export default function HistoryModal() {
                     <Ionicons
                       name={icon}
                       size={16}
-                      color={serviceType === label ? '#FFF' : '#94A3B8'}
+                      color={serviceType === label ? COLORS.white : COLORS.textMuted}
                     />
                     <Text
                       style={[
                         styles.pillText,
-                        { color: serviceType === label ? '#FFF' : '#94A3B8' },
+                        { color: serviceType === label ? COLORS.white : COLORS.textMuted },
                       ]}
                     >
                       {label}
@@ -203,42 +204,42 @@ export default function HistoryModal() {
                 ))}
               </View>
 
-              <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Date</Text>
+              <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Date</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: '#0F172A', color: '#F8FAFC' }]}
+                style={[styles.input, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
                 value={date}
                 onChangeText={setDate}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={COLORS.textMuted}
               />
 
-              <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Mileage ({unitLabel})</Text>
+              <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Mileage ({unitLabel})</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: '#0F172A', color: '#F8FAFC' }]}
+                style={[styles.input, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
                 value={mileage}
                 onChangeText={setMileage}
                 placeholder={String(currentMileage)}
-                placeholderTextColor="#64748B"
+                placeholderTextColor={COLORS.textMuted}
                 keyboardType="number-pad"
               />
 
-              <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Cost (optional)</Text>
+              <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Cost (optional)</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: '#0F172A', color: '#F8FAFC' }]}
+                style={[styles.input, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
                 value={cost}
                 onChangeText={setCost}
                 placeholder="0"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={COLORS.textMuted}
                 keyboardType="decimal-pad"
               />
 
-              <Text style={[styles.fieldLabel, { color: '#94A3B8' }]}>Notes (optional)</Text>
+              <Text style={[styles.fieldLabel, { color: COLORS.textMuted }]}>Notes (optional)</Text>
               <TextInput
-                style={[styles.input, styles.inputMultiline, { backgroundColor: '#0F172A', color: '#F8FAFC' }]}
+                style={[styles.input, styles.inputMultiline, { backgroundColor: COLORS.surface, color: COLORS.text, borderWidth: 1, borderColor: COLORS.border }]}
                 value={notes}
                 onChangeText={setNotes}
                 placeholder="Details..."
-                placeholderTextColor="#64748B"
+                placeholderTextColor={COLORS.textMuted}
                 multiline
                 numberOfLines={3}
               />
@@ -249,9 +250,9 @@ export default function HistoryModal() {
                 activeOpacity={0.8}
               >
                 <View style={[styles.checkbox, updateHealth && { backgroundColor: colors.primary }]}>
-                  {updateHealth && <Ionicons name="checkmark" size={16} color="#FFF" />}
+                  {updateHealth && <Ionicons name="checkmark" size={16} color={COLORS.white} />}
                 </View>
-                <Text style={[styles.checkLabel, { color: '#CBD5E1' }]}>
+                <Text style={[styles.checkLabel, { color: COLORS.text }]}>
                   Update vehicle health? (e.g. reset Oil / Tire / Brake interval)
                 </Text>
               </TouchableOpacity>
@@ -284,10 +285,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
   addBtn: { padding: 4 },
   empty: {
     flex: 1,
@@ -299,18 +300,18 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: '700', marginTop: 16 },
   emptySub: { fontSize: 14, marginTop: 8 },
   emptyBtn: { marginTop: 24, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12 },
-  emptyBtnText: { color: '#FFF', fontWeight: '700' },
+  emptyBtnText: { color: COLORS.white, fontWeight: '700' },
   listContent: { padding: 16, paddingBottom: 40 },
   card: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardLeft: {},
-  cardDate: { fontSize: 12, color: '#94A3B8', marginBottom: 4 },
+  cardDate: { fontSize: 12, color: COLORS.textMuted, marginBottom: 4 },
   cardType: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   cardMileage: { fontSize: 14 },
   cardCost: { fontSize: 16, fontWeight: '700' },
@@ -329,7 +330,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#475569',
+    backgroundColor: COLORS.border,
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 8,
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
   modalScroll: { paddingHorizontal: 20, paddingBottom: 32 },
   fieldLabel: { fontSize: 12, marginBottom: 8, marginTop: 12 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#334155',
+    backgroundColor: COLORS.surface,
   },
   pillText: { fontSize: 13, fontWeight: '600' },
   input: {
@@ -367,14 +368,14 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#64748B',
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkLabel: { flex: 1, fontSize: 14 },
   errorText: { marginTop: 12, fontSize: 14 },
   saveBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  saveBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 16 },
 });
 
 /*

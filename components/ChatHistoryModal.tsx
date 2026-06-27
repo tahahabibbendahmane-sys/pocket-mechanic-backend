@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useTheme } from '../contexts/ThemeContext';
+import { COLORS } from '@/constants/DesignSystem';
 import type { ChatMessage } from '../contexts/ChatContext';
 
 type ChatSession = {
@@ -38,10 +38,9 @@ const getDateLabel = (iso: string) => {
 };
 
 export default function ChatHistoryModal({ visible, onClose, onSelectSession }: Props) {
-  const { isDark } = useTheme();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
 
-  const styles = useMemo(() => createStyles(isDark), [isDark]);
+  const styles = useMemo(() => createStyles(), []);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -79,7 +78,7 @@ export default function ChatHistoryModal({ visible, onClose, onSelectSession }: 
               <Ionicons
                 name="close"
                 size={20}
-                color={isDark ? '#FFFFFF' : '#111111'}
+                color="#111111"
               />
             </TouchableOpacity>
           </View>
@@ -160,7 +159,7 @@ export default function ChatHistoryModal({ visible, onClose, onSelectSession }: 
   );
 }
 
-const createStyles = (isDark: boolean) =>
+const createStyles = () =>
   StyleSheet.create({
     overlay: {
       flex: 1,
@@ -169,9 +168,9 @@ const createStyles = (isDark: boolean) =>
     },
     sheet: {
       maxHeight: '80%',
-      backgroundColor: isDark ? '#1A1A1A' : '#FFFFFF',
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
+      backgroundColor: '#FFFFFF',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
       paddingHorizontal: 20,
       paddingTop: 16,
       paddingBottom: 24,
@@ -185,7 +184,7 @@ const createStyles = (isDark: boolean) =>
     title: {
       fontSize: 20,
       fontWeight: '700',
-      color: isDark ? '#FFFFFF' : '#000000',
+      color: COLORS.text,
     },
     closeBtn: {
       width: 32,
@@ -193,7 +192,7 @@ const createStyles = (isDark: boolean) =>
       borderRadius: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: isDark ? '#2A2A2A' : '#E5E5EA',
+      backgroundColor: COLORS.surface,
     },
     listContent: {
       paddingBottom: 16,
@@ -212,8 +211,10 @@ const createStyles = (isDark: boolean) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      backgroundColor: isDark ? '#2A2A2A' : '#F5F5F5',
+      backgroundColor: '#F7F7F7',
       borderRadius: 12,
+      borderWidth: 2,
+      borderColor: '#E5E5E5',
       padding: 14,
     },
     sessionTextWrap: {
@@ -223,7 +224,7 @@ const createStyles = (isDark: boolean) =>
     sessionTitle: {
       fontSize: 14,
       fontWeight: '500',
-      color: isDark ? '#FFFFFF' : '#000000',
+      color: COLORS.text,
       marginBottom: 4,
     },
     sessionMeta: {

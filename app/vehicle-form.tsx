@@ -9,20 +9,13 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { validateMileageUpdate, validateVehicleData } from '@/utils/vehicle-validation';
 import { supabase } from '@/lib/supabase';
 import { pickAndUploadVehiclePhoto } from '@/lib/vehiclePhoto';
-import * as ImagePicker from 'expo-image-picker';
+import { COLORS } from '@/constants/DesignSystem';
 
-const BG = '#0D0D0D';
-const SURFACE = '#1A1A1A';
-const BORDER = '#2A2A2A';
-const BLUE = '#0567A6';
-const WHITE = '#FFFFFF';
-const MUTED = '#888888';
-const PLACEHOLDER = '#555555';
+const BLUE = COLORS.blue;
 
 type FieldDef = {
   key: string;
@@ -41,10 +34,9 @@ interface SelectModalProps {
   onSelect: (value: string) => void;
   onClose: () => void;
   searchable?: boolean;
-  dark?: boolean;
 }
 
-function SelectModal({ visible, title, options, onSelect, onClose, searchable = true, dark = true }: SelectModalProps) {
+function SelectModal({ visible, title, options, onSelect, onClose, searchable = true }: SelectModalProps) {
   const [search, setSearch] = useState('');
 
   const filtered = searchable
@@ -65,13 +57,13 @@ function SelectModal({ visible, title, options, onSelect, onClose, searchable = 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={modalStyles.backdrop}>
-        <View style={[modalStyles.sheet, { backgroundColor: dark ? '#1A1A1A' : '#FFFFFF' }]}>
+        <View style={[modalStyles.sheet, { backgroundColor: COLORS.white }]}>
           <View style={modalStyles.header}>
-            <Text style={[modalStyles.headerTitle, { color: dark ? '#FFFFFF' : '#1A1A1A' }]}>
+            <Text style={[modalStyles.headerTitle, { color: COLORS.text }]}>
               {title}
             </Text>
             <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Ionicons name="close" size={24} color={dark ? '#FFFFFF' : '#1A1A1A'} />
+              <Ionicons name="close" size={24} color={COLORS.text} />
             </TouchableOpacity>
           </View>
 
@@ -80,10 +72,10 @@ function SelectModal({ visible, title, options, onSelect, onClose, searchable = 
               value={search}
               onChangeText={setSearch}
               placeholder="Search..."
-              placeholderTextColor="#888888"
+              placeholderTextColor={COLORS.textMuted}
               style={[modalStyles.searchInput, {
-                backgroundColor: dark ? '#0D0D0D' : '#F2F2F7',
-                color: dark ? '#FFFFFF' : '#1A1A1A',
+                backgroundColor: COLORS.surface,
+                color: COLORS.text,
               }]}
               autoFocus
             />
@@ -95,9 +87,9 @@ function SelectModal({ visible, title, options, onSelect, onClose, searchable = 
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => handleSelect(item)}
-                style={[modalStyles.option, { borderBottomColor: dark ? '#2A2A2A' : '#F0F0F0' }]}
+                style={[modalStyles.option, { borderBottomColor: COLORS.border }]}
               >
-                <Text style={[modalStyles.optionText, { color: dark ? '#FFFFFF' : '#1A1A1A' }]}>
+                <Text style={[modalStyles.optionText, { color: COLORS.text }]}>
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -189,24 +181,23 @@ export default function VehicleFormScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDark } = useTheme();
   const { vehicles, addVehicle, updateVehicle, refreshActiveCar } = useActiveCar();
   const { user } = useAuth();
   const { t } = useLanguage();
+
+  const bg = COLORS.background;
+  const surface = COLORS.card;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textMuted = COLORS.textMuted;
+  const placeholder = COLORS.textLight;
+  const headerBorder = COLORS.border;
+  const saveBtnText = COLORS.white;
 
   const TEXT_FIELDS: FieldDef[] = [
     { key: 'engine', label: t.addVehicle.engine, required: false, placeholder: t.addVehicle.enginePlaceholder, autoCapitalize: 'words' },
     { key: 'mileage', label: t.addVehicle.mileage, required: true, placeholder: t.addVehicle.mileagePlaceholder, keyboard: 'number-pad', hint: t.addVehicle.mileageHelper },
   ];
-
-  const bg = isDark ? BG : '#F2F2F7';
-  const surface = isDark ? SURFACE : '#FFFFFF';
-  const border = isDark ? BORDER : '#E5E5EA';
-  const textPrimary = isDark ? WHITE : '#000000';
-  const textMuted = isDark ? MUTED : '#6C6C70';
-  const placeholder = isDark ? PLACEHOLDER : '#A0A0A0';
-  const headerBorder = isDark ? BORDER : '#E5E5EA';
-  const saveBtnText = isDark ? BG : WHITE;
 
   const isEditing = !!params.id;
   const existingVehicle = isEditing ? vehicles.find((v) => v.id === params.id) : null;
@@ -222,7 +213,6 @@ export default function VehicleFormScreen() {
 
   const [vin, setVin] = useState('');
   const [decodingVin, setDecodingVin] = useState(false);
-  const [scanningVin, setScanningVin] = useState(false);
   const [vinDecoded, setVinDecoded] = useState(false);
   const [vinError, setVinError] = useState('');
 
@@ -339,76 +329,6 @@ export default function VehicleFormScreen() {
 
   const decodeVin = () => decodeVinString(vin);
 
-  const scanVinWithCamera = async () => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        setVinError('Camera permission required to scan VIN.');
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (result.canceled || !result.assets[0].base64) return;
-
-      setScanningVin(true);
-      setVinError('');
-
-      const base64Image = result.assets[0].base64;
-      const DEEPSEEK_API_KEY = process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY;
-
-      const response = await fetch(
-        'https://api.deepseek.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'deepseek-chat',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'image_url',
-                    image_url: { url: `data:image/jpeg;base64,${base64Image}` },
-                  },
-                  {
-                    type: 'text',
-                    text: 'Look at this image and extract the Vehicle Identification Number (VIN). The VIN is exactly 17 characters long and contains only letters and numbers (no I, O, or Q). It may appear on a sticker on the dashboard, door jamb, or engine bay.\n\nRespond with ONLY the 17-character VIN, nothing else. If you cannot find a VIN, respond with exactly: NOT_FOUND',
-                  },
-                ],
-              },
-            ],
-            max_tokens: 50,
-          }),
-        }
-      );
-
-      const data = await response.json();
-      const extracted = data.choices?.[0]?.message?.content?.trim()?.toUpperCase();
-
-      if (!extracted || extracted === 'NOT_FOUND' || extracted.length !== 17) {
-        setVinError("Couldn't read VIN from photo. Try better lighting or enter manually.");
-        setScanningVin(false);
-        return;
-      }
-
-      setVin(extracted);
-      setScanningVin(false);
-      await decodeVinString(extracted);
-    } catch {
-      setVinError('Scan failed. Please try again.');
-      setScanningVin(false);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!validateForm()) return;
     setIsSubmitting(true);
@@ -441,7 +361,7 @@ export default function VehicleFormScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <StatusBar barStyle="light-content" backgroundColor={bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: bg, borderBottomColor: headerBorder, paddingTop: Platform.OS === 'ios' ? insets.top + 8 : 16 }]}>
@@ -511,7 +431,7 @@ export default function VehicleFormScreen() {
                 <Text style={[styles.label, { color: textMuted, marginBottom: 0 }]}>
                   VIN (optional)
                 </Text>
-                <Text style={{ color: vin.length === 17 ? '#2ECC71' : MUTED, fontSize: 12 }}>
+                <Text style={{ color: vin.length === 17 ? '#2ECC71' : textMuted, fontSize: 12 }}>
                   {vin.length}/17
                 </Text>
               </View>
@@ -539,27 +459,6 @@ export default function VehicleFormScreen() {
                     color: textPrimary,
                   }]}
                 />
-
-                <TouchableOpacity
-                  onPress={scanVinWithCamera}
-                  disabled={scanningVin}
-                  style={{
-                    backgroundColor: bg,
-                    borderRadius: 10,
-                    width: 48,
-                    height: 52,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    borderWidth: 1,
-                    borderColor: border,
-                  }}
-                >
-                  {scanningVin ? (
-                    <ActivityIndicator size="small" color={BLUE} />
-                  ) : (
-                    <Ionicons name="camera-outline" size={22} color={BLUE} />
-                  )}
-                </TouchableOpacity>
 
                 <TouchableOpacity
                   onPress={decodeVin}
@@ -595,10 +494,10 @@ export default function VehicleFormScreen() {
                 </Text>
               ) : vinDecoded ? (
                 <Text style={{ color: '#2ECC71', fontSize: 13, marginTop: -2 }}>
-                  {'✓ Vehicle details filled automatically'}
+                  Vehicle details filled automatically
                 </Text>
               ) : (
-                <Text style={{ color: MUTED, fontSize: 12, marginTop: -2 }}>
+                <Text style={{ color: textMuted, fontSize: 12, marginTop: -2 }}>
                   Scan or enter VIN to auto-fill year, make and model
                 </Text>
               )}
@@ -617,7 +516,7 @@ export default function VehicleFormScreen() {
                 <Text style={{ color: year ? textPrimary : placeholder, fontSize: 15 }}>
                   {year || t.addVehicle.yearPlaceholder}
                 </Text>
-                <Ionicons name="chevron-down" size={18} color={MUTED} />
+                <Ionicons name="chevron-down" size={18} color={textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -634,7 +533,7 @@ export default function VehicleFormScreen() {
                 <Text style={{ color: make ? textPrimary : placeholder, fontSize: 15 }}>
                   {make || t.addVehicle.makePlaceholder}
                 </Text>
-                <Ionicons name="chevron-down" size={18} color={MUTED} />
+                <Ionicons name="chevron-down" size={18} color={textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -655,7 +554,7 @@ export default function VehicleFormScreen() {
                     {model || t.addVehicle.modelPlaceholder}
                   </Text>
                 )}
-                <Ionicons name="chevron-down" size={18} color={MUTED} />
+                <Ionicons name="chevron-down" size={18} color={textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -705,7 +604,6 @@ export default function VehicleFormScreen() {
             onSelect={setYear}
             onClose={() => setShowYearModal(false)}
             searchable={false}
-            dark={isDark}
           />
           <SelectModal
             visible={showMakeModal}
@@ -714,7 +612,6 @@ export default function VehicleFormScreen() {
             onSelect={(val) => { setMake(val); setModel(''); }}
             onClose={() => setShowMakeModal(false)}
             searchable
-            dark={isDark}
           />
           <SelectModal
             visible={showModelModal}
@@ -723,7 +620,6 @@ export default function VehicleFormScreen() {
             onSelect={setModel}
             onClose={() => setShowModelModal(false)}
             searchable
-            dark={isDark}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -747,7 +643,7 @@ const styles = StyleSheet.create({
   cancelText: { fontSize: 16, fontWeight: '500' },
   headerTitle: { fontSize: 20, fontWeight: '700', textAlign: 'center', flex: 1 },
   saveBtn: {
-    backgroundColor: BLUE,
+    backgroundColor: COLORS.amber,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -776,7 +672,7 @@ const styles = StyleSheet.create({
   formPhotoPlaceholder: {
     width: '100%',
     height: 120,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },

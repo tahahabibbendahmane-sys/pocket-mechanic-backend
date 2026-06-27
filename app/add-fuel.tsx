@@ -20,7 +20,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useXP } from '@/contexts/XPContext';
 
 import { COLORS, RADIUS, SPACING, TYPE, getColors } from '@/constants/DesignSystem';
@@ -44,8 +43,7 @@ type Params = {
 export default function AddFuelScreen() {
   const router = useRouter();
   const { vehicleId: vehicleIdParam } = useLocalSearchParams<Params>();
-  const { isDark } = useTheme();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const { activeCar, vehicles, fetchVehicles } = useActiveCar();
   const { earnXP } = useXP();
@@ -232,7 +230,7 @@ export default function AddFuelScreen() {
   if (!resolvedVehicle) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.emptyCenter}>
           <Text style={[TYPE.h2, { color: c.text }]}>No vehicle selected</Text>
           <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: SPACING.sm }]}>
@@ -245,7 +243,7 @@ export default function AddFuelScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: c.background, paddingTop: 0 }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={c.background} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -255,7 +253,7 @@ export default function AddFuelScreen() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.backBtn}>
             <Ionicons name="chevron-back" size={26} color={COLORS.blue} />
           </TouchableOpacity>
-          <Text style={[TYPE.displayMD, { color: c.text }]}>Log Fill-Up ⛽</Text>
+          <Text style={[TYPE.displayMD, { color: c.text }]}>Log fill-up</Text>
           <View style={styles.headerRightSpacer} />
         </View>
 
@@ -431,7 +429,7 @@ export default function AddFuelScreen() {
                 style={{ flex: 1 }}
               />
               <ChunkyButton
-                title={saving ? 'Saving...' : 'Save Fill-Up ✓'}
+                title={saving ? 'Saving...' : 'Save fill-up'}
                 onPress={handleSave}
                 disabled={saving}
                 style={{ flex: 1, backgroundColor: COLORS.blue }}

@@ -1,16 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View, Text, StatusBar, ScrollView, Alert, Image } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, Text, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { hasOverdueServices, hasDueSoonServices } from '@/utils/maintenance-status';
-import { calculateHealthScore } from '@/lib/healthScore';
 import { formatMileage, getUnitLabel } from '@/utils/formatting';
 import { useUnits } from '@/contexts/UnitsContext';
 import { TranslationKeys } from '@/i18n/en';
@@ -20,19 +17,19 @@ import { supabase } from '@/lib/supabase';
 import { calculateFuelStats, getFuelLogs, FuelStats } from '@/lib/fuelTracking';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { COLORS, SPACING, RADIUS, SHADOWS, TYPE, getColors } from '@/constants/DesignSystem';
+import { Colors, SPACING, RADIUS, TYPE, getColors, CARD_SHADOW } from '@/constants/DesignSystem';
 import { ChunkyCard } from '@/components/ui/ChunkyCard';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { XPBadge } from '@/components/ui/XPBadge';
-import { StreakBadge } from '@/components/ui/StreakBadge';
+import { calculateHealthScore } from '@/lib/healthScore';
 import { getUserXP, getUserLevel, getStreak, checkIn, XP_REWARDS } from '@/lib/xpSystem';
 import { XPPopup } from '@/components/ui/XPPopup';
 
-const RECOMMENDED_ACTIONS = [
-  { icon: 'document-text-outline' as const, label: 'Log Service', xp: XP_REWARDS.LOG_SERVICE, route: '/(tabs)/maintenance' },
-  { icon: 'warning-outline' as const, label: 'Check Recalls', xp: XP_REWARDS.CHECK_RECALLS, route: '/recalls' },
-  { icon: 'chatbubble-ellipses-outline' as const, label: 'Ask Wrenchy', xp: XP_REWARDS.ASK_WRENCHY, route: '/(tabs)/chatbot' },
-  { icon: 'book-outline' as const, label: 'DIY Guide', xp: XP_REWARDS.COMPLETE_GUIDE, route: '/(tabs)/guides' },
+const QUICK_ACTIONS = [
+  { icon: 'construct-outline' as const, label: 'Log Service', route: '/(tabs)/maintenance' as const },
+  { icon: 'chatbubble-ellipses-outline' as const, label: 'Ask Wrenchy', route: '/(tabs)/chatbot' as const },
+  { icon: 'alarm-outline' as const, label: 'Reminders', route: '/(tabs)/maintenance' as const },
+  { icon: 'car-sport-outline' as const, label: 'My Garage', route: '/(tabs)/garage' as const },
 ];
 
 function getGreeting(t: TranslationKeys['home']): string {
@@ -42,18 +39,23 @@ function getGreeting(t: TranslationKeys['home']): string {
   return t.goodEvening;
 }
 
+function healthStatusLine(score: number): string {
+  if (score >= 80) return 'Vehicle is in good standing.';
+  if (score >= 60) return 'Some maintenance items need attention.';
+  return 'Service is overdue — review reminders.';
+}
+
 export default function DashboardScreen() {
   const router = useRouter();
   const { profile, user, refreshProfile } = useAuth();
   const { activeCar, isLoading } = useActiveCar();
-  const { isDark } = useTheme();
   const { unitSystem } = useUnits();
   const { t } = useLanguage();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const [forceReady, setForceReady] = useState(false);
   useEffect(() => {
-    const timeout = setTimeout(() => setForceReady(true), 6000);
+    const timeout = setTimeout(() => setForceReady(true), 5000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -85,29 +87,66 @@ export default function DashboardScreen() {
   const vehicleId = activeCar?.id;
 
   useEffect(() => {
-    if (!vehicleId) { setData({ logs: [], reminders: [], loaded: true }); return; }
+    if (!vehicleId) {
+      setData({ logs: [], reminders: [], loaded: true });
+      return;
+    }
     let cancelled = false;
-    const fetchData = async () => {
+    const timeout = setTimeout(() => {
+      if (!cancelled) setData((d) => ({ ...d, loaded: true }));
+    }, 5000);
+    (async () => {
       try {
         const [logs, reminders] = await Promise.all([getMaintenanceLogs(vehicleId), getReminders(vehicleId)]);
         if (!cancelled) setData({ logs: logs ?? [], reminders: reminders ?? [], loaded: true });
-      } catch {
+      } catch (e) {
+        console.error(e);
         if (!cancelled) setData({ logs: [], reminders: [], loaded: true });
+      } finally {
+        clearTimeout(timeout);
       }
+    })();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
     };
-    fetchData();
-    return () => { cancelled = true; };
   }, [vehicleId]);
 
   useEffect(() => {
     if (!activeCar?.id) return;
-    Promise.all([
-      supabase.from('maintenance_logs').select('*').eq('vehicle_id', activeCar.id).order('created_at', { ascending: false }),
-      supabase.from('maintenance_reminders').select('*').eq('vehicle_id', activeCar.id).eq('is_completed', false),
-    ]).then(([{ data: logs }, { data: rem }]) => {
-      setHomeLogs(logs ?? []);
-      setHomeReminders(rem ?? []);
-    }).catch(() => { setHomeLogs([]); setHomeReminders([]); });
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setHomeLogs([]);
+        setHomeReminders([]);
+      }
+    }, 5000);
+    (async () => {
+      try {
+        const [{ data: logs, error: e1 }, { data: rem, error: e2 }] = await Promise.all([
+          supabase.from('maintenance_logs').select('*').eq('vehicle_id', activeCar.id).order('created_at', { ascending: false }),
+          supabase.from('maintenance_reminders').select('*').eq('vehicle_id', activeCar.id).eq('is_completed', false),
+        ]);
+        if (e1) throw e1;
+        if (e2) throw e2;
+        if (!cancelled) {
+          setHomeLogs(logs ?? []);
+          setHomeReminders(rem ?? []);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setHomeLogs([]);
+          setHomeReminders([]);
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [activeCar?.id]);
 
   useEffect(() => {
@@ -132,21 +171,34 @@ export default function DashboardScreen() {
   }, [activeCar?.id]);
 
   useEffect(() => {
-    if (!activeCar?.make || !activeCar?.model || !activeCar?.year) { setRecallsCount(0); return; }
+    if (!activeCar?.make || !activeCar?.model || !activeCar?.year) {
+      setRecallsCount(0);
+      return;
+    }
     let cancelled = false;
     fetchRecalls(activeCar.make, activeCar.model, activeCar.year)
-      .then((list) => { if (!cancelled) setRecallsCount(list?.length ?? 0); })
-      .catch(() => { if (!cancelled) setRecallsCount(0); });
-    return () => { cancelled = true; };
+      .then((list) => {
+        if (!cancelled) setRecallsCount(list?.length ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setRecallsCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activeCar?.make, activeCar?.model, activeCar?.year]);
 
   useEffect(() => {
     if (!user?.id) return;
     getUserXP(user.id).then(setTotalXP).catch(() => {});
-    getStreak(user.id).then((s) => setStreak({ currentStreak: s.currentStreak, checkedInToday: s.checkedInToday })).catch(() => {});
+    getStreak(user.id)
+      .then((s) => setStreak({ currentStreak: s.currentStreak, checkedInToday: s.checkedInToday }))
+      .catch(() => {});
   }, [user?.id]);
 
-  useFocusEffect(useCallback(() => { refreshProfile(); }, [refreshProfile]));
+  useFocusEffect(useCallback(() => {
+    refreshProfile();
+  }, [refreshProfile]));
 
   const recentLogs = useMemo(() => data.logs.slice(0, 3), [data.logs]);
 
@@ -159,7 +211,7 @@ export default function DashboardScreen() {
   }, [data.logs]);
 
   const nextReminder = useMemo(() => {
-    if (!activeCar || data.reminders.length === 0) return null;
+    if (!activeCar?.id || data.reminders.length === 0) return null;
     const scored = data.reminders.map((r: any) => {
       const mk = r.due_miles ?? Number.POSITIVE_INFINITY;
       const dk = r.due_date ? new Date(r.due_date).getTime() : Number.POSITIVE_INFINITY;
@@ -167,43 +219,26 @@ export default function DashboardScreen() {
     });
     scored.sort((a: any, b: any) => a.sortKey - b.sortKey);
     return scored[0].r ?? null;
-  }, [activeCar, data.reminders]);
+  }, [activeCar?.id, data.reminders]);
 
   const healthResult = activeCar ? calculateHealthScore(activeCar, homeLogs, homeReminders) : null;
   const healthScore = healthResult?.score ?? 100;
   const levelInfo = getUserLevel(totalXP);
 
-  const healthStatusCard = useMemo(() => {
-    const issueCount = healthResult?.issues?.length ?? 0;
-    let variant: 'green' | 'blue' | 'red' | 'default' = 'green';
-    let emoji = '✅';
-    let text = 'All caught up! Your car is in great shape.';
-    let textColor: string = COLORS.xpGreen;
-
-    if (healthScore < 40) {
-      variant = 'red'; emoji = '🔴';
-      text = 'Critical maintenance items are overdue. Take action now.';
-      textColor = COLORS.heartRed;
-    } else if (healthScore < 60) {
-      variant = 'default'; emoji = '⚠️';
-      text = 'Your car has overdue maintenance. Tap to review.';
-      textColor = COLORS.streakOrange;
-    } else if (healthScore < 80 || issueCount > 0) {
-      variant = 'blue'; emoji = '⚠️';
-      text = 'Some items need your attention. Check your service schedule.';
-      textColor = COLORS.blue;
-    }
-
-    return { variant, emoji, text, textColor };
-  }, [healthScore, healthResult?.issues?.length]);
-
   const totalSpent = useMemo(() => data.logs.reduce((s: number, l: any) => s + (l.cost ?? 0), 0), [data.logs]);
 
-  const displayName = profile?.displayName?.trim() || profile?.name?.trim() || (user?.user_metadata as any)?.full_name || user?.email?.split('@')[0] || t.home.driver;
+  const lastServiceDisplay =
+    daysSinceLastService != null ? (daysSinceLastService === 0 ? 'Today' : `${daysSinceLastService}d`) : '--';
+  const spentDisplay =
+    !data.loaded ? '--' : data.logs.length === 0 && totalSpent === 0 ? '--' : `$${totalSpent.toLocaleString()}`;
+  const levelDisplay = `Lvl ${levelInfo.level}`;
 
-  const carTitle = activeCar
-    ? [activeCar.year, activeCar.make?.trim(), activeCar.model?.trim()].filter(Boolean).join(' ')
-    : t.home.noActiveVehicle;
+  const displayName =
+    profile?.displayName?.trim() ||
+    profile?.name?.trim() ||
+    (user?.user_metadata as any)?.full_name ||
+    user?.email?.split('@')[0] ||
+    t.home.driver;
 
   const handleCheckIn = async () => {
     if (!user?.id || streak.checkedInToday) return;
@@ -248,7 +283,7 @@ export default function DashboardScreen() {
   if (isLoading && !forceReady) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.loadingWrap}>
           <Text style={[TYPE.body, { color: c.textMuted }]}>{t.home.loading}</Text>
         </View>
@@ -258,257 +293,172 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={c.background} />
 
       {xpPopup != null && <XPPopup amount={xpPopup} onComplete={() => setXpPopup(null)} />}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={[TYPE.h2, { color: c.text }]}>
-              {getGreeting(t.home)}, {displayName} 👋
-            </Text>
-            <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: 2 }]}>
-              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-            </Text>
+            <Text style={styles.greeting}>{getGreeting(t.home)}</Text>
+            <Text style={styles.nameTitle}>{displayName}</Text>
           </View>
-          <View style={styles.headerBadges}>
-            <StreakBadge streak={streak.currentStreak} />
-            <XPBadge xp={totalXP} />
-          </View>
+          <XPBadge xp={totalXP} />
         </View>
 
         {activeCar ? (
           <>
-            {/* Active Vehicle Hero Card */}
-            <ChunkyCard
-              style={styles.heroCard}
-              noPadding
+            <TouchableOpacity
+              activeOpacity={0.92}
               onPress={() => router.push({ pathname: '/vehicle-detail', params: { vehicleId: activeCar.id } })}
+              style={styles.vehicleCard}
             >
-              {activeCar.photo_url ? (
-                <Image
-                  source={{ uri: activeCar.photo_url + '?t=' + Date.now() }}
-                  style={styles.heroPhoto}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={[styles.heroPhotoPlaceholder, { backgroundColor: isDark ? '#1C1C1C' : '#F0EDE6' }]}>
-                  <Text style={styles.heroPhotoEmoji}>🚗</Text>
-                </View>
-              )}
-              <View style={styles.activePill}>
-                <View style={styles.activePillDot} />
-                <Text style={styles.activePillText}>Active</Text>
-              </View>
-              {recallsCount > 0 && (
-                <View style={styles.recallDot} />
-              )}
-              <View style={styles.heroBody}>
-                <View style={styles.heroBodyRow}>
-                  <View style={styles.heroInfo}>
-                    <Text style={[TYPE.h1, { color: c.text }]}>{activeCar.make} {activeCar.model}</Text>
-                    <Text style={[TYPE.body, { color: c.textSecondary, marginTop: 2 }]}>
-                      {activeCar.year} · {formatMileage(activeCar.mileage ?? 0, unitSystem)} {getUnitLabel(unitSystem)}
+              <View style={styles.vehicleCardInner}>
+                <View style={styles.vehicleCardRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.vehicleTitle}>
+                      {[activeCar.make?.trim(), activeCar.model?.trim()].filter(Boolean).join(' ')}
                     </Text>
+                    <Text style={styles.vehicleSub}>
+                      {[activeCar.year, activeCar.nickname?.trim()].filter(Boolean).join(' · ') || String(activeCar.year ?? '')}
+                    </Text>
+                    <Text style={styles.healthCaption}>{healthStatusLine(healthScore)}</Text>
                     {healthResult?.issues?.length ? (
-                      <View style={styles.issuesWrap}>
-                        {healthResult.issues.slice(0, 2).map((issue: string, i: number) => (
-                          <View key={i} style={[styles.issuePill, { backgroundColor: (healthResult.color ?? COLORS.blue) + '18' }]}>
-                            <View style={[styles.issueDot, { backgroundColor: healthResult.color }]} />
-                            <Text style={[TYPE.labelSM, { color: healthResult.color }]}>{issue}</Text>
-                          </View>
+                      <View style={styles.issuesBlock}>
+                        {healthResult.issues.slice(0, 3).map((issue: string, i: number) => (
+                          <Text key={i} style={styles.issueLine}>
+                            • {issue}
+                          </Text>
                         ))}
                       </View>
                     ) : null}
                   </View>
                   <ProgressRing
                     score={healthScore}
-                    size={70}
-                    strokeWidth={6}
-                    label={
-                      healthScore >= 80 ? 'Great' :
-                      healthScore >= 60 ? 'Attention' :
-                      healthScore >= 40 ? 'Overdue' : 'Critical'
-                    }
+                    size={88}
+                    strokeWidth={5}
+                    label={healthScore >= 80 ? 'Good' : healthScore >= 60 ? 'Fair' : 'Low'}
                   />
                 </View>
-                {/* Level progress bar */}
+                <Text style={[TYPE.caption, { color: Colors.textMuted, marginTop: SPACING.sm }]}>
+                  {formatMileage(activeCar.mileage ?? 0, unitSystem)} {getUnitLabel(unitSystem)}
+                </Text>
                 <View style={styles.levelBar}>
-                  <View style={[styles.levelBarTrack, { backgroundColor: isDark ? '#2A2A2A' : '#E5E5E5' }]}>
+                  <View style={[styles.levelBarTrack, { backgroundColor: Colors.border }]}>
                     <View style={[styles.levelBarFill, { width: `${levelInfo.xpProgress * 100}%` }]} />
                   </View>
-                  <Text style={[TYPE.labelSM, { color: c.textMuted }]}>
-                    {levelInfo.emoji} Lvl {levelInfo.level}
+                  <Text style={[TYPE.caption, { color: Colors.textMuted }]}>
+                    Level {levelInfo.level} · {levelInfo.title}
                   </Text>
                 </View>
               </View>
-            </ChunkyCard>
+            </TouchableOpacity>
 
-            {/* Daily Check-in Banner */}
             {!streak.checkedInToday && user?.id && (
-              <ChunkyCard variant="blue" onPress={handleCheckIn} style={styles.checkinCard}>
-                <View style={styles.checkinRow}>
-                  <Text style={styles.checkinEmoji}>🔥</Text>
-                  <View style={styles.checkinText}>
-                    <Text style={[TYPE.h3, { color: '#000' }]}>Keep your streak alive!</Text>
-                    <Text style={[TYPE.bodySM, { color: '#00000088' }]}>Tap to check in and earn 10 XP</Text>
-                  </View>
-                  <View style={styles.checkinXP}>
-                    <Text style={[TYPE.label, { color: COLORS.blueDark }]}>+10 XP</Text>
-                  </View>
+              <TouchableOpacity activeOpacity={0.9} onPress={handleCheckIn} style={styles.streakBanner}>
+                <Ionicons name="flame-outline" size={22} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.streakCount}>{streak.currentStreak} day streak</Text>
+                  <Text style={styles.streakSub}>Tap to check in</Text>
                 </View>
-              </ChunkyCard>
+                <View style={styles.streakXpPill}>
+                  <Text style={styles.streakXpPillText}>+10 XP</Text>
+                </View>
+              </TouchableOpacity>
             )}
 
-            {/* Stats Row */}
+            <Text style={styles.sectionLabel}>Overview</Text>
             <View style={styles.statsRow}>
-              <ChunkyCard style={styles.statCard}>
-                <Text style={styles.statEmoji}>🔧</Text>
-                <Text style={[TYPE.statSM, { color: c.text }]}>
-                  {daysSinceLastService != null ? (daysSinceLastService === 0 ? 'Today' : `${daysSinceLastService}d`) : '—'}
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{lastServiceDisplay}</Text>
+                <Text style={styles.statLabel}>Last Service</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{spentDisplay}</Text>
+                <Text style={styles.statLabel}>Total Spent</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Text style={styles.statValue}>{levelDisplay}</Text>
+                <Text style={styles.statLabel} numberOfLines={1}>
+                  {levelInfo.title}
                 </Text>
-                <Text style={[TYPE.labelSM, { color: c.textSecondary }]}>Last Service</Text>
-              </ChunkyCard>
-              <ChunkyCard style={styles.statCard}>
-                <Text style={styles.statEmoji}>💰</Text>
-                <Text style={[TYPE.statSM, { color: COLORS.xpGreen }]}>${totalSpent > 0 ? totalSpent.toLocaleString() : '0'}</Text>
-                <Text style={[TYPE.labelSM, { color: c.textSecondary }]}>Total Spent</Text>
-              </ChunkyCard>
-              <ChunkyCard style={styles.statCard}>
-                <Text style={styles.statEmoji}>⚡</Text>
-                <Text style={[TYPE.statSM, { color: COLORS.levelPurple }]}>Lvl {levelInfo.level}</Text>
-                <Text style={[TYPE.labelSM, { color: c.textSecondary }]}>{levelInfo.title}</Text>
-              </ChunkyCard>
+              </View>
             </View>
 
-            <ChunkyCard variant="blue" onPress={() => router.push('/add-fuel')} style={{ marginTop: 16 }}>
+            <Text style={styles.sectionLabel}>Quick actions</Text>
+            <View style={styles.quickGrid}>
+              {QUICK_ACTIONS.map((action) => (
+                <TouchableOpacity
+                  key={action.label}
+                  activeOpacity={0.85}
+                  style={styles.quickCard}
+                  onPress={() => router.push(action.route as any)}
+                >
+                  <Ionicons name={action.icon} size={26} color={Colors.primary} />
+                  <Text style={styles.quickLabel}>{action.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <ChunkyCard onPress={() => router.push('/add-fuel')} style={{ marginTop: SPACING.md }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Text style={{ fontSize: 28 }}>⛽</Text>
+                  <Ionicons name="water-outline" size={26} color={Colors.primary} />
                   <View>
-                    <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 17, color: '#1A1A1A' }}>Log Fill-Up</Text>
-                    <Text style={{ fontFamily: 'Outfit_400Regular', fontSize: 13, color: '#777777' }}>Track fuel economy & costs</Text>
+                    <Text style={TYPE.cardValue}>Log fill-up</Text>
+                    <Text style={TYPE.caption}>Track fuel economy and costs</Text>
                   </View>
                 </View>
-                <View style={{ backgroundColor: '#D7F5B1', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: '#46A302' }}>
-                  <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 11, color: '#46A302' }}>+25 XP</Text>
+                <View style={styles.xpHint}>
+                  <Text style={styles.xpHintText}>+{XP_REWARDS.LOG_FUEL} XP</Text>
                 </View>
               </View>
             </ChunkyCard>
 
-            {/* Fuel Quick Stat */}
             {fuelCardData && (
-              <ChunkyCard
-                onPress={() => router.push('/fuel-dashboard')}
-                style={{ marginTop: SPACING.sm }}
-              >
+              <ChunkyCard onPress={() => router.push('/fuel-dashboard')} style={{ marginTop: SPACING.sm }}>
                 <View>
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      gap: SPACING.sm,
-                    }}
-                  >
-                    <Text style={[TYPE.h3, { color: c.text }]}>
-                      ⛽ {fuelCardData.avgConsumption > 0 ? fuelCardData.avgConsumption.toFixed(1) : '—'} L/100km
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.sm }}>
+                    <Text style={[TYPE.cardValue, { flex: 1 }]}>
+                      {fuelCardData.avgConsumption > 0 ? `${fuelCardData.avgConsumption.toFixed(1)} L/100km` : '—'}
                     </Text>
-
-                    <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>
+                    <Text style={[TYPE.caption, { color: Colors.textSecondary }]}>
                       Last fill: {formatDaysAgo(fuelCardData.lastFillDate)}
                     </Text>
                   </View>
-
-                  <Text style={[TYPE.bodySM, { color: COLORS.blue, marginTop: 8 }]}>
-                    Tap to view fuel dashboard →
-                  </Text>
+                  <Text style={[TYPE.caption, { color: Colors.primary, marginTop: 8 }]}>View fuel dashboard</Text>
                 </View>
               </ChunkyCard>
             )}
 
-            {/* Health Status Card — context-aware */}
-            {data.loaded && (
-              <ChunkyCard
-                variant={healthStatusCard.variant}
-                onPress={() => router.push('/(tabs)/maintenance')}
-                style={styles.nextServiceCard}
-              >
-                <View style={styles.nextServiceRow}>
-                  <Text style={styles.nextServiceEmoji}>{healthStatusCard.emoji}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[TYPE.h3, { color: healthStatusCard.variant === 'green' ? healthStatusCard.textColor : (healthStatusCard.variant === 'blue' ? '#000' : '#FFF') }]}>
-                      {healthStatusCard.text}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={healthStatusCard.variant === 'green' ? COLORS.xpGreen : (healthStatusCard.variant === 'blue' ? '#00000066' : '#FFFFFF88')} />
-                </View>
-              </ChunkyCard>
-            )}
-
-            {/* Next Service Reminder */}
             {data.loaded && nextReminder && (
-              <ChunkyCard
-                onPress={() => router.push('/(tabs)/maintenance')}
-                style={{ marginTop: SPACING.sm }}
-              >
+              <ChunkyCard onPress={() => router.push('/(tabs)/maintenance')} style={{ marginTop: SPACING.sm }}>
                 <View style={styles.nextServiceRow}>
-                  <View style={[styles.nextServiceIcon, { backgroundColor: COLORS.blue + '20' }]}>
-                    <Ionicons name="build-outline" size={20} color={COLORS.blue} />
-                  </View>
+                  <Ionicons name="build-outline" size={22} color={Colors.primary} />
                   <View style={styles.nextServiceInfo}>
-                    <Text style={[TYPE.labelSM, { color: c.textSecondary }]}>Next Service</Text>
-                    <Text style={[TYPE.h3, { color: c.text }]}>{nextReminder.service_name}</Text>
+                    <Text style={TYPE.caption}>Next service</Text>
+                    <Text style={TYPE.cardValue}>{nextReminder.service_name}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={c.textMuted} />
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                 </View>
               </ChunkyCard>
             )}
 
-            {/* Recommended Actions */}
-            <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.xl, marginBottom: SPACING.md }]}>
-              Recommended
-            </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.actionsScroll} contentContainerStyle={styles.actionsScrollContent}>
-              {RECOMMENDED_ACTIONS.map((action) => (
-                <ChunkyCard
-                  key={action.label}
-                  style={styles.actionCard}
-                  onPress={() => router.push(action.route as any)}
-                >
-                  <View style={[styles.actionIconWrap, { backgroundColor: COLORS.blue + '20' }]}>
-                    <Ionicons name={action.icon} size={20} color={COLORS.blue} />
-                  </View>
-                  <Text style={[TYPE.label, { color: c.text, marginTop: SPACING.sm }]}>{action.label}</Text>
-                  <View style={styles.xpMini}>
-                    <Text style={styles.xpMiniText}>+{action.xp} XP</Text>
-                  </View>
-                </ChunkyCard>
-              ))}
-            </ScrollView>
-
-            {/* Recent Activity */}
             {data.loaded && recentLogs.length > 0 && (
               <>
-                <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.xl, marginBottom: SPACING.md }]}>
-                  Recent Activity
-                </Text>
+                <Text style={[styles.sectionLabel, { marginTop: SPACING.lg }]}>Recent activity</Text>
                 <ChunkyCard noPadding>
                   {recentLogs.map((log: any, idx: number) => (
                     <View key={log.id}>
                       <View style={styles.activityRow}>
-                        <View style={[styles.activityIcon, { backgroundColor: COLORS.blue + '20' }]}>
-                          <Ionicons name="build-outline" size={16} color={COLORS.blue} />
-                        </View>
+                        <Ionicons name="construct-outline" size={18} color={Colors.primary} />
                         <View style={styles.activityInfo}>
-                          <Text style={[TYPE.body, { color: c.text }]} numberOfLines={1}>{log.service_name}</Text>
-                          <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>{formatRelativeDate(log.date)}</Text>
+                          <Text style={[TYPE.body, { color: c.text }]} numberOfLines={1}>
+                            {log.service_name}
+                          </Text>
+                          <Text style={[TYPE.caption, { color: Colors.textSecondary }]}>{formatRelativeDate(log.date)}</Text>
                         </View>
-                        <View style={styles.xpMini}>
-                          <Text style={styles.xpMiniText}>+{XP_REWARDS.LOG_SERVICE} XP</Text>
-                        </View>
+                        <Text style={styles.xpMiniText}>+{XP_REWARDS.LOG_SERVICE} XP</Text>
                       </View>
                       {idx < recentLogs.length - 1 && <View style={[styles.activityDivider, { backgroundColor: c.divider }]} />}
                     </View>
@@ -517,32 +467,29 @@ export default function DashboardScreen() {
               </>
             )}
 
-            {/* Tip of the Day */}
-            <ChunkyCard variant="blue" style={styles.tipCard}>
-              <View style={styles.tipRow}>
-                <Text style={styles.tipEmoji}>💡</Text>
-                <View style={styles.tipTextWrap}>
-                  <Text style={[TYPE.labelSM, { color: COLORS.starBlue }]}>Tip of the Day</Text>
-                  <Text style={[TYPE.bodySM, { color: c.text, marginTop: 2 }]} numberOfLines={2}>{tips[tipIndex]}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setTipIndex((tipIndex + 1) % tips.length)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.starBlue} />
-                </TouchableOpacity>
+            <ChunkyCard style={{ marginTop: SPACING.xl }}>
+              <View style={styles.wrenchyTipHeader}>
+                <Ionicons name="information-circle-outline" size={22} color={Colors.primary} />
+                <Text style={TYPE.cardValue}>Maintenance tip</Text>
               </View>
+              <Text style={styles.wrenchyTipText}>{tips[tipIndex]}</Text>
+              <TouchableOpacity
+                onPress={() => setTipIndex((tipIndex + 1) % tips.length)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                style={{ alignSelf: 'flex-end', marginTop: SPACING.sm }}
+              >
+                <Text style={[TYPE.caption, { color: Colors.primary }]}>Next tip</Text>
+              </TouchableOpacity>
             </ChunkyCard>
           </>
         ) : (
           <ChunkyCard style={styles.emptyCard}>
-            <Text style={styles.emptyEmoji}>🚗</Text>
-            <Text style={[TYPE.h2, { color: c.text, textAlign: 'center' }]}>Add your first vehicle to get started</Text>
+            <Ionicons name="car-sport-outline" size={48} color={Colors.primary} style={{ marginBottom: SPACING.md }} />
+            <Text style={[TYPE.h2, { color: c.text, textAlign: 'center' }]}>Add your first vehicle</Text>
             <Text style={[TYPE.body, { color: c.textSecondary, textAlign: 'center', marginTop: SPACING.sm }]}>
-              Track maintenance, earn XP, and keep your car healthy
+              Track maintenance, earn XP, and keep your car healthy.
             </Text>
-            <TouchableOpacity
-              style={styles.addCarBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('/vehicle-form')}
-            >
+            <TouchableOpacity style={styles.addCarBtn} activeOpacity={0.85} onPress={() => router.push('/vehicle-form')}>
               <Text style={styles.addCarBtnText}>{t.home.addVehicle}</Text>
             </TouchableOpacity>
           </ChunkyCard>
@@ -559,61 +506,114 @@ const styles = StyleSheet.create({
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingTop: SPACING.sm, marginBottom: SPACING.lg },
   headerLeft: { flex: 1, marginRight: SPACING.md },
-  headerBadges: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+  greeting: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.textMuted },
+  nameTitle: { fontFamily: 'Outfit_700Bold', fontSize: 28, color: Colors.textPrimary, marginTop: 4 },
 
-  heroCard: { marginBottom: SPACING.lg },
-  heroPhoto: { width: '100%', height: 180, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2 },
-  heroPhotoPlaceholder: { width: '100%', height: 180, borderTopLeftRadius: RADIUS.lg - 2, borderTopRightRadius: RADIUS.lg - 2, alignItems: 'center', justifyContent: 'center' },
-  heroPhotoEmoji: { fontSize: 64 },
-  activePill: { position: 'absolute', top: SPACING.md, left: SPACING.md, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.xpGreen, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  activePillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FFFFFF' },
-  activePillText: { ...TYPE.labelSM, color: '#FFFFFF' },
-  recallDot: { position: 'absolute', top: 12, right: 12, width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.heartRed, borderWidth: 2, borderColor: '#FFFFFF' },
-  heroBody: { padding: SPACING.lg },
-  heroBodyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  heroInfo: { flex: 1, marginRight: SPACING.md },
-  issuesWrap: { marginTop: SPACING.sm, gap: 4 },
-  issuePill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.pill, gap: 6 },
-  issueDot: { width: 5, height: 5, borderRadius: 2.5 },
-  levelBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.lg },
-  levelBarTrack: { flex: 1, height: 6, borderRadius: 3, overflow: 'hidden' },
-  levelBarFill: { height: '100%', backgroundColor: COLORS.blue, borderRadius: 3 },
+  sectionLabel: {
+    ...TYPE.sectionHeader,
+    marginBottom: 10,
+    marginTop: 8,
+  },
 
-  checkinCard: { marginBottom: SPACING.lg },
-  checkinRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  checkinEmoji: { fontSize: 28 },
-  checkinText: { flex: 1 },
-  checkinXP: { backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  vehicleCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    marginBottom: SPACING.lg,
+    overflow: 'hidden',
+    ...CARD_SHADOW,
+  },
+  vehicleCardInner: { padding: SPACING.lg },
+  vehicleCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  vehicleTitle: { fontFamily: 'Outfit_600SemiBold', fontSize: 17, color: Colors.textPrimary },
+  vehicleSub: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.textMuted, marginTop: 4 },
+  healthCaption: { fontFamily: 'Outfit_400Regular', fontSize: 14, color: Colors.textSecondary, marginTop: SPACING.sm, lineHeight: 20 },
+  issuesBlock: { marginTop: SPACING.sm, gap: 4 },
+  issueLine: { ...TYPE.caption, color: Colors.textSecondary },
+  levelBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.md },
+  levelBarTrack: { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden' },
+  levelBarFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
 
-  statsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.lg },
-  statCard: { flex: 1, alignItems: 'center', gap: 4 },
-  statEmoji: { fontSize: 22 },
+  streakBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.md,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: Colors.surfaceSecondary,
+    marginBottom: SPACING.lg,
+  },
+  streakCount: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: Colors.textPrimary },
+  streakSub: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: Colors.textMuted, marginTop: 2 },
+  streakXpPill: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  streakXpPillText: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, color: Colors.primary },
 
-  nextServiceCard: { marginBottom: 0 },
+  statsRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    ...CARD_SHADOW,
+  },
+  statValue: { fontFamily: 'Outfit_600SemiBold', fontSize: 18, color: Colors.textPrimary, textAlign: 'center' },
+  statLabel: { fontFamily: 'Outfit_400Regular', fontSize: 12, color: Colors.textMuted, marginTop: 4, textAlign: 'center' },
+
+  quickGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: SPACING.md },
+  quickCard: {
+    width: '47%',
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+    ...CARD_SHADOW,
+  },
+  quickLabel: { fontFamily: 'Outfit_600SemiBold', fontSize: 14, color: Colors.textPrimary, textAlign: 'center', marginTop: SPACING.sm },
+
+  xpHint: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  xpHintText: { fontFamily: 'Outfit_600SemiBold', fontSize: 11, color: Colors.primary },
+
   nextServiceRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  nextServiceIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   nextServiceInfo: { flex: 1, gap: 2 },
-  nextServiceEmoji: { fontSize: 20 },
-
-  actionsScroll: { marginLeft: -SPACING.xl },
-  actionsScrollContent: { paddingHorizontal: SPACING.xl, gap: SPACING.md },
-  actionCard: { width: 110, alignItems: 'center', gap: 2 },
-  actionIconWrap: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  xpMini: { backgroundColor: COLORS.xpGreenLight, borderRadius: RADIUS.pill, paddingHorizontal: 8, paddingVertical: 2, marginTop: 4 },
-  xpMiniText: { ...TYPE.labelSM, color: COLORS.xpGreenDark, fontSize: 10 },
 
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md },
-  activityIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   activityInfo: { flex: 1, gap: 1 },
-  activityDivider: { height: 1, marginLeft: 60 },
+  activityDivider: { height: 1, marginLeft: 52 },
+  xpMiniText: { fontFamily: 'Outfit_600SemiBold', fontSize: 11, color: Colors.primary },
 
-  tipCard: { marginTop: SPACING.xl, marginBottom: SPACING.lg },
-  tipRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  tipEmoji: { fontSize: 24 },
-  tipTextWrap: { flex: 1 },
+  wrenchyTipHeader: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
+  wrenchyTipText: { ...TYPE.body, marginTop: 4 },
 
-  emptyCard: { marginTop: 60, alignItems: 'center', paddingVertical: SPACING.xxxl },
-  emptyEmoji: { fontSize: 64, marginBottom: SPACING.lg },
-  addCarBtn: { backgroundColor: COLORS.blue, borderRadius: RADIUS.sm, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl, marginTop: SPACING.xl },
-  addCarBtnText: { ...TYPE.h3, color: '#000000' },
+  emptyCard: { marginTop: 48, alignItems: 'center', paddingVertical: SPACING.xxxl },
+  addCarBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: SPACING.xxl,
+    marginTop: SPACING.xl,
+    width: '100%',
+    alignItems: 'center',
+  },
+  addCarBtnText: { ...TYPE.button, color: Colors.surface },
 });

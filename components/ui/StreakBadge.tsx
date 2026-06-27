@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -20,7 +21,7 @@ export function StreakBadge({ streak }: StreakBadgeProps) {
   useEffect(() => {
     scale.value = withRepeat(
       withSequence(
-        withTiming(1.15, { duration: 500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1.12, { duration: 500, easing: Easing.inOut(Easing.ease) }),
         withTiming(1, { duration: 500, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
@@ -33,10 +34,12 @@ export function StreakBadge({ streak }: StreakBadgeProps) {
   }));
 
   return (
-    <Animated.View style={styles.badge}>
-      <Animated.Text style={[styles.icon, flameStyle]}>🔥</Animated.Text>
+    <View style={styles.badge}>
+      <Animated.View style={flameStyle}>
+        <Ionicons name="flame" size={14} color={COLORS.primary} />
+      </Animated.View>
       <Text style={styles.text}>{streak}</Text>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -45,18 +48,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.streakOrangeLight,
-    borderWidth: 1.5,
-    borderColor: COLORS.streakOrange,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 0.5,
+    borderColor: COLORS.border,
     borderRadius: RADIUS.pill,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
   },
-  icon: {
-    fontSize: 14,
-  },
   text: {
     ...TYPE.label,
-    color: COLORS.streakOrange,
+    color: COLORS.primary,
   },
 });

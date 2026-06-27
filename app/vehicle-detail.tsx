@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { supabase } from '@/lib/supabase';
 import { calculateHealthScore } from '@/lib/healthScore';
-import { useTheme } from '@/contexts/ThemeContext';
+import { isElectricVehicle } from '@/lib/evDetection';
 import { useUnits } from '@/contexts/UnitsContext';
 import { COLORS, getColors } from '@/constants/DesignSystem';
 
@@ -22,9 +22,8 @@ export default function VehicleDetailScreen() {
   const { vehicleId } = useLocalSearchParams<{ vehicleId: string }>();
   const { vehicles } = useActiveCar();
   const router = useRouter();
-  const { isDark } = useTheme();
   const { unitSystem } = useUnits();
-  const _c = getColors(isDark);
+  const _c = getColors();
 
   const background = _c.background;
   const surface = _c.surface;
@@ -71,6 +70,7 @@ export default function VehicleDetailScreen() {
   }, [vehicleId]);
 
   if (!vehicle) return null;
+  const isEV = isElectricVehicle(vehicle.make ?? '', vehicle.model ?? '');
   if (loading) {
     return (
       <View
@@ -107,13 +107,13 @@ export default function VehicleDetailScreen() {
   const kmSinceTire = vehicle.mileage - lastTire;
   const kmSinceBrake = vehicle.mileage - lastBrake;
 
-  if (kmSinceOil >= 8000)
+  if (!isEV && kmSinceOil >= 8000)
     mileageAlerts.push({
       icon: 'warning',
       text: 'Oil change overdue',
       color: '#FF4444',
     });
-  else if (kmSinceOil >= 6000)
+  else if (!isEV && kmSinceOil >= 6000)
     mileageAlerts.push({
       icon: 'alert-circle',
       text: 'Oil change due soon',
@@ -161,7 +161,7 @@ export default function VehicleDetailScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: background }}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: COLORS.text,
     fontSize: 20,
     fontFamily: 'Outfit_700Bold',
     flex: 1,
@@ -347,23 +347,23 @@ const styles = StyleSheet.create({
   photoPlaceholder: {
     width: '100%',
     height: 220,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   healthCard: {
     margin: 20,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   healthLabel: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 12,
     marginBottom: 4,
   },
@@ -391,17 +391,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionLabel: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 11,
     fontFamily: 'Outfit_600SemiBold',
     letterSpacing: 1.2,
     marginBottom: 12,
   },
   sectionCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: COLORS.border,
     overflow: 'hidden',
   },
   specRow: {
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   },
   specRowBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    borderBottomColor: COLORS.border,
   },
   specIconWrap: {
     width: 32,
@@ -423,12 +423,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   specLabel: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 14,
     flex: 1,
   },
   specValue: {
-    color: '#FFFFFF',
+    color: COLORS.text,
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
     maxWidth: 180,
@@ -445,15 +445,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Outfit_600SemiBold',
   },
   noRemindersCard: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: COLORS.border,
     padding: 20,
     alignItems: 'center',
   },
   noRemindersText: {
-    color: '#888888',
+    color: COLORS.textMuted,
     fontSize: 14,
     marginTop: 8,
   },
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   reminderTitle: {
-    color: '#FFFFFF',
+    color: COLORS.text,
     fontSize: 14,
     fontFamily: 'Outfit_600SemiBold',
   },

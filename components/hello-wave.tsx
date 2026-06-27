@@ -1,19 +1,11 @@
-import Animated from 'react-native-reanimated';
+import { View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/constants/DesignSystem';
 
 export function HelloWave() {
   return (
-    <Animated.Text
-      style={{
-        fontSize: 28,
-        lineHeight: 32,
-        marginTop: -6,
-        animationName: {
-          '50%': { transform: [{ rotate: '25deg' }] },
-        },
-        animationIterationCount: 4,
-        animationDuration: '300ms',
-      }}>
-      👋
-    </Animated.Text>
+    <View style={{ marginTop: -6 }}>
+      <Ionicons name="hand-left-outline" size={28} color={COLORS.primary} />
+    </View>
   );
 }

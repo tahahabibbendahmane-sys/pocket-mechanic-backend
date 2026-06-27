@@ -5,15 +5,15 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { COLORS, SHADOWS } from '@/constants/DesignSystem';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useUnits } from '@/contexts/UnitsContext';
-import { ThemeColors } from '@/constants/theme-enhanced';
 import { formatMileage, getUnitLabel } from '@/utils/formatting';
 
 const OIL_INTERVAL_KM = 8000;
@@ -75,7 +75,6 @@ function overallScore(items: DiagnosticItem[]): { score: number; label: string; 
 export default function DiagnosticsModal() {
   const router = useRouter();
   const { activeCar } = useActiveCar();
-  const { isDark } = useTheme();
   const { unitSystem } = useUnits();
 
   const health = activeCar?.health;
@@ -128,10 +127,11 @@ export default function DiagnosticsModal() {
   const { score, label: scoreLabel, color: scoreColor } = overallScore(items);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#0F172A' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: COLORS.background }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#94A3B8" />
+          <Ionicons name="arrow-back" size={24} color={COLORS.textMuted} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Vehicle Diagnostics</Text>
         <View style={styles.headerRight} />
@@ -139,7 +139,7 @@ export default function DiagnosticsModal() {
 
       {!activeCar ? (
         <View style={styles.empty}>
-          <Ionicons name="car-sport-outline" size={48} color="#475569" />
+          <Ionicons name="car-sport-outline" size={48} color={COLORS.textMuted} />
           <Text style={styles.emptyText}>No active vehicle. Set one in Garage.</Text>
         </View>
       ) : (
@@ -210,21 +210,21 @@ export default function DiagnosticsModal() {
               style={styles.actionBtn}
               onPress={() => router.push('/(modals)/tire-pressure')}
             >
-              <Ionicons name="speedometer" size={22} color="#94A3B8" />
+              <Ionicons name="speedometer" size={22} color={COLORS.textMuted} />
               <Text style={styles.actionText}>Tires</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => router.push('/(modals)/oil-specs')}
             >
-              <Ionicons name="flask" size={22} color="#94A3B8" />
+              <Ionicons name="flask" size={22} color={COLORS.textMuted} />
               <Text style={styles.actionText}>Oil Specs</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               onPress={() => router.push('/(modals)/history')}
             >
-              <Ionicons name="time" size={22} color="#94A3B8" />
+              <Ionicons name="time" size={22} color={COLORS.textMuted} />
               <Text style={styles.actionText}>History</Text>
             </TouchableOpacity>
           </View>
@@ -243,10 +243,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.border,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#F8FAFC' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
   headerRight: { width: 32 },
   empty: {
     flex: 1,
@@ -254,25 +254,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 32,
   },
-  emptyText: { marginTop: 12, color: '#94A3B8', fontSize: 14, textAlign: 'center' },
+  emptyText: { marginTop: 12, color: COLORS.textMuted, fontSize: 14, textAlign: 'center' },
   scroll: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 48 },
   scoreCard: {
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 28,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
+    ...SHADOWS.card,
   },
   scoreNumber: { fontSize: 56, fontWeight: '800', letterSpacing: -1 },
   scoreLabel: { fontSize: 18, fontWeight: '700', marginTop: 4 },
-  scoreSub: { fontSize: 14, color: '#94A3B8', marginTop: 8 },
+  scoreSub: { fontSize: 14, color: COLORS.textMuted, marginTop: 8 },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#94A3B8',
+    color: COLORS.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 12,
@@ -281,12 +282,12 @@ const styles = StyleSheet.create({
   checkItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1E293B',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
   },
   checkIcon: {
     width: 40,
@@ -297,27 +298,27 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   checkContent: { flex: 1 },
-  checkLabel: { fontSize: 15, fontWeight: '700', color: '#F8FAFC', marginBottom: 2 },
-  checkDetail: { fontSize: 12, color: '#94A3B8' },
+  checkLabel: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
+  checkDetail: { fontSize: 12, color: COLORS.textMuted },
   checkStatus: { alignItems: 'center', minWidth: 60 },
   checkStatusText: { fontSize: 10, fontWeight: '700', marginTop: 2 },
   specCard: {
-    backgroundColor: '#1E293B',
+    backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
   },
   specRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#334155',
+    borderBottomColor: COLORS.border,
   },
-  specLabel: { fontSize: 14, color: '#94A3B8' },
-  specValue: { fontSize: 14, fontWeight: '600', color: '#F8FAFC' },
+  specLabel: { fontSize: 14, color: COLORS.textMuted },
+  specValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
@@ -325,12 +326,12 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: COLORS.surface,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: COLORS.border,
   },
-  actionText: { fontSize: 12, fontWeight: '600', color: '#94A3B8', marginTop: 6 },
+  actionText: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted, marginTop: 6 },
 });

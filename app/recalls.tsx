@@ -10,12 +10,13 @@ import {
   LayoutAnimation,
   UIManager,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
 import { fetchRecalls, Recall } from '@/lib/recalls';
+import { COLORS } from '@/constants/DesignSystem';
 
 const BLUE = '#0567A6';
 const RED = '#FF4444';
@@ -27,7 +28,6 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 export default function RecallsScreen() {
   const router = useRouter();
-  const { isDark } = useTheme();
   const params = useLocalSearchParams<{
     make?: string;
     model?: string;
@@ -66,12 +66,12 @@ export default function RecallsScreen() {
     loadRecalls();
   }, [loadRecalls]);
 
-  const bg = isDark ? '#0D0D0D' : '#F2F2F7';
-  const surface = isDark ? '#1A1A1A' : '#FFFFFF';
-  const border = isDark ? '#2A2A2A' : '#E5E5EA';
-  const textPrimary = isDark ? '#FFFFFF' : '#000000';
-  const textSecondary = isDark ? '#CCCCCC' : '#555555';
-  const muted = '#888888';
+  const bg = COLORS.surface;
+  const surface = COLORS.card;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textSecondary = COLORS.textMuted;
+  const muted = COLORS.textMuted;
 
   const formatLastChecked = () => {
     const diff = Math.floor((Date.now() - lastChecked.getTime()) / 1000);
@@ -113,6 +113,7 @@ export default function RecallsScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bg }]} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
           <Ionicons name="chevron-back" size={24} color={textPrimary} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { COLORS, RADIUS, SPACING, TYPE } from '@/constants/DesignSystem';
+import { Ionicons } from '@expo/vector-icons';
 
 interface XPBadgeProps {
   xp: number;
@@ -9,7 +9,7 @@ interface XPBadgeProps {
 export function XPBadge({ xp }: XPBadgeProps) {
   return (
     <View style={styles.badge}>
-      <Text style={styles.icon}>⚡</Text>
+      <Ionicons name="flash" size={13} color="#1A6FBF" />
       <Text style={styles.text}>{xp.toLocaleString()}</Text>
     </View>
   );
@@ -20,18 +20,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.blueLight,
-    borderWidth: 1.5,
-    borderColor: COLORS.blue,
-    borderRadius: RADIUS.pill,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-  },
-  icon: {
-    fontSize: 14,
+    backgroundColor: '#EBF3FC',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   text: {
-    ...TYPE.label,
-    color: COLORS.blueDark,
+    fontSize: 13,
+    color: '#1A6FBF',
   },
 });

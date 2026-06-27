@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Platform, View, Text, Image } from 'react-native';
+import { StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Platform, View, Text, Image, StatusBar } from 'react-native';
 import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,10 +8,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
-import { useThemeColor } from '@/hooks/use-theme-color';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { formatDate, formatDateForInput, formatMileage, getUnitLabel } from '@/utils/formatting';
-import { useTheme } from '@/contexts/ThemeContext';
+import { COLORS as DSCOLORS } from '@/constants/DesignSystem';
 import { BorderRadius, Spacing, Typography, ThemeColors, Shadows } from '@/constants/theme-enhanced';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnimatedButton } from '@/components/AnimatedButton';
@@ -29,23 +28,22 @@ const uriToBlob = async (uri: string) => {
 
 export default function InsuranceScreen() {
   const { activeCar, isLoading, updateVehicle } = useActiveCar();
-  const { theme, isDark } = useTheme();
   const { t } = useLanguage();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { unitSystem } = useUnits();
   const router = useRouter();
-  const colors = ThemeColors[theme];
-  const tintColor = useThemeColor({}, 'tint');
-  const backgroundColor = useThemeColor({}, 'background');
-  const textColor = useThemeColor({}, 'text');
-  const textSecondary = useThemeColor({}, 'textSecondary');
-  const borderColor = useThemeColor({}, 'border');
-  const placeholderColor = useThemeColor({}, 'textTertiary');
-  const iconColor = useThemeColor({}, 'icon');
-  const textInverse = useThemeColor({}, 'textInverse');
-  const primaryDark = useThemeColor({}, 'primaryDark');
+  const colors = ThemeColors.light;
+  const tintColor = colors.primary;
+  const backgroundColor = DSCOLORS.surface;
+  const textColor = DSCOLORS.text;
+  const textSecondary = colors.textSecondary;
+  const borderColor = DSCOLORS.border;
+  const placeholderColor = DSCOLORS.textMuted;
+  const iconColor = colors.icon;
+  const textInverse = colors.textInverse;
+  const primaryDark = colors.primaryDark;
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -228,7 +226,8 @@ export default function InsuranceScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#F2F2F7' }]}>
+      <ThemedView style={[styles.container, { backgroundColor: DSCOLORS.surface }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={DSCOLORS.surface} />
         <ThemedView style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={tintColor} />
         </ThemedView>
@@ -238,7 +237,8 @@ export default function InsuranceScreen() {
 
   if (!displayCar) {
     return (
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: DSCOLORS.surface }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={DSCOLORS.surface} />
         <ThemedView style={[styles.header, { paddingTop: insets.top }]}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -259,9 +259,9 @@ export default function InsuranceScreen() {
           <ThemedView style={[
             styles.emptyCard,
             {
-              backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+              backgroundColor: DSCOLORS.card,
               borderWidth: 1,
-              borderColor: isDark ? '#334155' : '#E2E8F0',
+              borderColor: DSCOLORS.border,
             },
             Shadows.sm
           ]}>
@@ -269,14 +269,14 @@ export default function InsuranceScreen() {
               <IconSymbol 
                 name="doc.text.fill" 
                 size={48} 
-                color={isDark ? '#94A3B8' : '#64748B'} 
+                color={iconColor} 
               />
             </View>
             <Text 
               style={[
                 styles.emptyText,
                 {
-                  color: isDark ? '#FFFFFF' : '#0F172A',
+                  color: DSCOLORS.text,
                   fontWeight: '700',
                 }
               ]}>
@@ -286,7 +286,7 @@ export default function InsuranceScreen() {
               style={[
                 styles.emptySubtext,
                 {
-                  color: isDark ? '#94A3B8' : '#64748B',
+                  color: textSecondary,
                 }
               ]}>
               {t.insurance.noActiveCarMessage}
@@ -316,7 +316,8 @@ export default function InsuranceScreen() {
   }
 
   return (
-    <ThemedView style={[styles.container, { backgroundColor: isDark ? '#000000' : '#F2F2F7' }]}>
+    <ThemedView style={[styles.container, { backgroundColor: DSCOLORS.surface }]}>
+      <StatusBar barStyle="dark-content" backgroundColor={DSCOLORS.surface} />
       <ThemedView style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -335,8 +336,8 @@ export default function InsuranceScreen() {
           </TouchableOpacity>
         </View>
         <ThemedView style={styles.carInfo}>
-          <View style={[styles.carCapsule, { backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA' }]}>
-            <Text style={[styles.carCapsuleText, { color: isDark ? '#FFFFFF' : '#555' }]}>
+          <View style={[styles.carCapsule, { backgroundColor: DSCOLORS.surface, borderWidth: 1, borderColor: DSCOLORS.border }]}>
+            <Text style={[styles.carCapsuleText, { color: DSCOLORS.text }]}>
               {displayCar.make} {displayCar.model} • {displayCar.year} • {formatMileage(displayCar.mileage, unitSystem)} {getUnitLabel(unitSystem)}
             </Text>
           </View>
@@ -390,20 +391,20 @@ export default function InsuranceScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Insurance Section */}
-        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: DSCOLORS.card }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             {t.insurance.title}
           </ThemedText>
 
           {!hasInsuranceData && !isEditing ? (
-            <ThemedView style={[styles.emptySection, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }, Shadows.sm]}>
+            <ThemedView style={[styles.emptySection, { backgroundColor: DSCOLORS.card }, Shadows.sm]}>
               <ThemedView style={styles.iconBubble}>
                 <IconSymbol name="doc.text.fill" size={32} color={colors.primary || '#2962FF'} />
               </ThemedView>
-              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: isDark ? '#A1A1A1' : '#666666' }]}>
+              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: DSCOLORS.textMuted }]}>
                 {t.insurance.noInsuranceInfo}
               </ThemedText>
-              <ThemedText style={[styles.emptySectionSubtext, { color: isDark ? '#A1A1A1' : '#666666' }]}>
+              <ThemedText style={[styles.emptySectionSubtext, { color: DSCOLORS.textMuted }]}>
                 {t.insurance.noInsuranceMessage}
               </ThemedText>
             </ThemedView>
@@ -478,20 +479,20 @@ export default function InsuranceScreen() {
         </ThemedView>
 
         {/* Registration Section */}
-        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }]}>
+        <ThemedView style={[styles.section, styles.sectionCard, { backgroundColor: DSCOLORS.card }]}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             {t.insurance.registration}
           </ThemedText>
 
           {!hasRegistrationData && !isEditing ? (
-            <ThemedView style={[styles.emptySection, { backgroundColor: isDark ? '#1C1C1E' : '#FFFFFF' }, Shadows.sm]}>
+            <ThemedView style={[styles.emptySection, { backgroundColor: DSCOLORS.card }, Shadows.sm]}>
               <ThemedView style={styles.iconBubble}>
                 <IconSymbol name="calendar" size={32} color={colors.primary || '#2962FF'} />
               </ThemedView>
-              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: isDark ? '#A1A1A1' : '#666666' }]}>
+              <ThemedText style={[styles.emptySectionText, { fontWeight: '700', color: DSCOLORS.textMuted }]}>
                 {t.insurance.noRegistrationInfo}
               </ThemedText>
-              <ThemedText style={[styles.emptySectionSubtext, { color: isDark ? '#A1A1A1' : '#666666' }]}>
+              <ThemedText style={[styles.emptySectionSubtext, { color: DSCOLORS.textMuted }]}>
                 {t.insurance.noRegistrationMessage}
               </ThemedText>
             </ThemedView>

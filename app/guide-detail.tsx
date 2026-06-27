@@ -5,11 +5,11 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { COLORS } from '@/constants/DesignSystem';
 import { hardcodedGuides, Guide } from '@/data/guides';
 
-const BLUE = '#0567A6';
+const BLUE = COLORS.blue;
 const GREEN = '#2ECC71';
 const RED = '#FF4444';
 
@@ -51,7 +51,6 @@ function parseGuideParam(raw: string | undefined): Guide | null {
 }
 
 export default function GuideDetailScreen() {
-  const { isDark } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
@@ -59,11 +58,11 @@ export default function GuideDetailScreen() {
 
   const guide = hardcodedGuides.find(g => g.id === id) ?? parseGuideParam(guideData);
 
-  const bg = isDark ? '#0D0D0D' : '#F2F2F7';
-  const surface = isDark ? '#1A1A1A' : '#FFFFFF';
-  const border = isDark ? '#2A2A2A' : '#E5E5EA';
-  const textPrimary = isDark ? '#FFFFFF' : '#000000';
-  const textMuted = isDark ? '#888888' : '#6C6C70';
+  const bg = COLORS.surface;
+  const surface = COLORS.card;
+  const border = COLORS.border;
+  const textPrimary = COLORS.text;
+  const textMuted = COLORS.textMuted;
 
   const [completed, setCompleted] = useState<Set<number>>(new Set());
 
@@ -107,7 +106,7 @@ export default function GuideDetailScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bg} />
+      <StatusBar barStyle="dark-content" backgroundColor={bg} />
 
       {/* Header */}
       <View style={[styles.header, { backgroundColor: bg, paddingTop: Platform.OS === 'ios' ? insets.top + 4 : 16 }]}>
@@ -215,7 +214,7 @@ export default function GuideDetailScreen() {
               <View style={styles.stepRow}>
                 <View style={[styles.stepCircle, done && styles.stepCircleDone]}>
                   {done ? (
-                    <Ionicons name="checkmark" size={18} color="#0D0D0D" />
+                    <Ionicons name="checkmark" size={18} color={COLORS.text} />
                   ) : (
                     <Text style={styles.stepNum}>{step.stepNumber}</Text>
                   )}
@@ -243,7 +242,7 @@ export default function GuideDetailScreen() {
       <View style={[styles.footer, { backgroundColor: bg, borderTopColor: border, paddingBottom: Math.max(insets.bottom, 16) }]}>
         {allDone ? (
           <TouchableOpacity style={styles.completeBtn} activeOpacity={0.8} onPress={() => router.back()}>
-            <Ionicons name="checkmark-circle" size={20} color="#0D0D0D" />
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.text} />
             <Text style={styles.completeBtnText}>{t.guideDetail.markComplete}</Text>
           </TouchableOpacity>
         ) : (
@@ -332,7 +331,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   stepCircleDone: { backgroundColor: GREEN },
-  stepNum: { color: '#0D0D0D', fontSize: 16, fontWeight: '700' },
+  stepNum: { color: COLORS.text, fontSize: 16, fontWeight: '700' },
   stepBody: { flex: 1, gap: 6 },
   stepTitle: { fontSize: 15, fontWeight: '600' },
   stepTitleDone: { textDecorationLine: 'line-through', opacity: 0.6 },
@@ -369,6 +368,6 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 8,
   },
-  completeBtnText: { color: '#0D0D0D', fontSize: 16, fontWeight: '600' },
+  completeBtnText: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
   remainingText: { fontSize: 14 },
 });

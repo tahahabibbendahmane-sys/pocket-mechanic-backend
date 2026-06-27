@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,38 +13,45 @@ import {
   MaintenanceLog, MaintenanceReminder, ServiceType,
 } from '@/lib/maintenance';
 import { cancelReminderNotification } from '@/lib/notifications';
-import { useTheme } from '@/contexts/ThemeContext';
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { useUnits } from '@/contexts/UnitsContext';
 import { formatMileage, getUnitLabel } from '@/utils/formatting';
-import { COLORS, SPACING, RADIUS, TYPE, getColors } from '@/constants/DesignSystem';
+import { Colors, COLORS, SPACING, RADIUS, TYPE, getColors, CARD_SHADOW } from '@/constants/DesignSystem';
 import { ChunkyCard } from '@/components/ui/ChunkyCard';
 import { ChunkyButton } from '@/components/ui/ChunkyButton';
 import { XP_REWARDS } from '@/lib/xpSystem';
 
 type ServiceIconConfig = { icon: string; bg: string; color: string };
 
+function getServiceAccent(name: string): string {
+  const n = (name ?? '').toLowerCase();
+  if (n.includes('oil')) return Colors.warning;
+  if (n.includes('tire') || n.includes('tyre') || n.includes('rotation')) return Colors.primary;
+  if (n.includes('brake')) return Colors.danger;
+  return Colors.textMuted;
+}
+
 function getServiceIcon(name: string): ServiceIconConfig {
   const n = (name ?? '').toLowerCase();
-  if (n.includes('oil')) return { icon: 'water-outline', bg: COLORS.blue + '20', color: COLORS.blue };
-  if (n.includes('brake')) return { icon: 'disc-outline', bg: COLORS.heartRed + '20', color: COLORS.heartRed };
-  if (n.includes('tire') || n.includes('tyre') || n.includes('rotation')) return { icon: 'ellipse-outline', bg: '#33333320', color: '#888888' };
-  if (n.includes('battery')) return { icon: 'battery-half-outline', bg: COLORS.xpGreen + '20', color: COLORS.xpGreen };
-  if (n.includes('filter') || n.includes('air')) return { icon: 'leaf-outline', bg: COLORS.starBlue + '20', color: COLORS.starBlue };
-  if (n.includes('transmission') || n.includes('fluid')) return { icon: 'water-outline', bg: COLORS.levelPurple + '20', color: COLORS.levelPurple };
-  return { icon: 'construct-outline', bg: COLORS.blue + '20', color: COLORS.blue };
+  let icon: keyof typeof Ionicons.glyphMap = 'construct-outline';
+  if (n.includes('oil')) icon = 'water-outline';
+  else if (n.includes('brake')) icon = 'disc-outline';
+  else if (n.includes('tire') || n.includes('tyre') || n.includes('rotation')) icon = 'ellipse-outline';
+  else if (n.includes('battery')) icon = 'battery-half-outline';
+  else if (n.includes('filter') || n.includes('air')) icon = 'leaf-outline';
+  else if (n.includes('transmission') || n.includes('fluid')) icon = 'water-outline';
+  return { icon, bg: Colors.primaryLight, color: Colors.primary };
 }
 
 export default function ServiceScreen() {
   const router = useRouter();
-  const { isDark } = useTheme();
   const { activeCar, isLoading: isCarLoading, refreshActiveCar } = useActiveCar();
   const { unitSystem } = useUnits();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const [forceReady, setForceReady] = useState(false);
   useEffect(() => {
-    const timeout = setTimeout(() => setForceReady(true), 6000);
+    const timeout = setTimeout(() => setForceReady(true), 5000);
     return () => clearTimeout(timeout);
   }, []);
 
@@ -61,20 +68,40 @@ export default function ServiceScreen() {
   const currentMileage = activeCar?.mileage ?? 0;
 
   const loadData = useCallback(async () => {
-    if (!activeCar?.id) { setLogs([]); setReminders([]); setLoading(false); setLoaded(true); return; }
+    if (!activeCar?.id) {
+      setLogs([]);
+      setReminders([]);
+      setLoading(false);
+      setLoaded(true);
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      setLoaded(true);
+    }, 5000);
     try {
       setLoading(true);
-      const timeoutId = setTimeout(() => { setLoading(false); setLoaded(true); }, 5000);
-      const [logsData, remindersData] = await Promise.all([getMaintenanceLogs(activeCar.id), getReminders(activeCar.id)]);
-      clearTimeout(timeoutId);
-      setLogs(logsData);
-      setReminders(remindersData);
+      const [logsData, remindersData] = await Promise.all([
+        getMaintenanceLogs(activeCar.id),
+        getReminders(activeCar.id),
+      ]);
+      setLogs(logsData ?? []);
+      setReminders(remindersData ?? []);
     } catch (error: any) {
+      console.error(error);
       Alert.alert('Error', error?.message || 'Failed to load maintenance data.');
-    } finally { setLoading(false); setLoaded(true); }
+      setLogs([]);
+      setReminders([]);
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+      setLoaded(true);
+    }
   }, [activeCar?.id]);
 
-  useEffect(() => { if (activeCar?.id) loadData(); }, [activeCar?.id, loadData]);
+  useEffect(() => {
+    if (activeCar?.id) loadData();
+  }, [activeCar?.id, loadData]);
 
   useEffect(() => {
     const loadTypes = async () => {
@@ -191,31 +218,30 @@ export default function ServiceScreen() {
 
   if (isCarLoading && !forceReady) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
-        <View style={styles.loadingWrap}><ActivityIndicator color={COLORS.blue} /></View>
+      <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]} edges={['top']}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={Colors.primary} />
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: c.background }]} edges={['top']}>
-      {/* Header */}
+    <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]} edges={['top']}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
       <View style={styles.headerRow}>
-        <Text style={[TYPE.displayMD, { color: c.text }]}>Service</Text>
+        <Text style={styles.headerTitle}>Service Log</Text>
         {activeCar && (
-          <TouchableOpacity
-            style={[styles.addBtn, { backgroundColor: COLORS.blue, borderColor: COLORS.blueDark }]}
-            activeOpacity={0.8}
-            onPress={handleAddLog}
-          >
-            <Ionicons name="add" size={22} color="#000" />
+          <TouchableOpacity style={styles.addBtn} activeOpacity={0.85} onPress={handleAddLog}>
+            <Ionicons name="add" size={22} color={Colors.surface} />
           </TouchableOpacity>
         )}
       </View>
 
       {!activeCar ? (
         <View style={styles.emptyWrap}>
-          <Text style={{ fontSize: 56 }}>🚗</Text>
+          <Ionicons name="car-sport-outline" size={56} color={Colors.primary} />
           <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.lg }]}>No active vehicle</Text>
           <Text style={[TYPE.body, { color: c.textSecondary, marginTop: SPACING.sm, textAlign: 'center' }]}>
             Add a vehicle in Garage to track services
@@ -226,31 +252,39 @@ export default function ServiceScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.blue} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
           showsVerticalScrollIndicator={false}
         >
           {/* ═══ Stats Dashboard ═══ */}
           <ChunkyCard style={styles.dashCard}>
             <View style={styles.dashRow}>
               <View style={styles.dashCol}>
-                <Text style={[TYPE.stat, { color: c.text }]} adjustsFontSizeToFit numberOfLines={1}>{totalServices}</Text>
-                <Text style={[TYPE.labelSM, { color: c.textMuted }]}>Services</Text>
+                <Text style={styles.dashStat} adjustsFontSizeToFit numberOfLines={1}>
+                  {loaded ? String(totalServices) : '--'}
+                </Text>
+                <Text style={styles.dashStatLabel}>Services</Text>
               </View>
               <View style={[styles.dashDivider, { backgroundColor: c.divider }]} />
               <View style={styles.dashCol}>
-                <Text style={[TYPE.stat, { color: COLORS.blue }]} adjustsFontSizeToFit numberOfLines={1}>${totalSpent.toFixed(0)}</Text>
-                <Text style={[TYPE.labelSM, { color: c.textMuted }]}>Total Spent</Text>
+                <Text style={styles.dashStat} adjustsFontSizeToFit numberOfLines={1}>
+                  {loaded ? `$${totalSpent.toFixed(0)}` : '--'}
+                </Text>
+                <Text style={styles.dashStatLabel}>Total Spent</Text>
               </View>
               <View style={[styles.dashDivider, { backgroundColor: c.divider }]} />
               <View style={styles.dashCol}>
-                <Text style={[TYPE.stat, { color: c.text }]} adjustsFontSizeToFit numberOfLines={1}>{lastServiceLabel}</Text>
-                <Text style={[TYPE.labelSM, { color: c.textMuted }]}>Since Last</Text>
+                <Text style={styles.dashStat} adjustsFontSizeToFit numberOfLines={1}>
+                  {loaded ? lastServiceLabel : '--'}
+                </Text>
+                <Text style={styles.dashStatLabel}>Since Last</Text>
               </View>
             </View>
           </ChunkyCard>
 
           {loading && !loaded && logs.length === 0 && (
-            <View style={styles.loadingInline}><ActivityIndicator color={COLORS.blue} /></View>
+            <View style={styles.loadingInline}>
+              <ActivityIndicator color={Colors.primary} />
+            </View>
           )}
 
           {/* ═══ Reminders ═══ */}
@@ -261,14 +295,14 @@ export default function ServiceScreen() {
                 const { label, isOverdue } = formatReminderDue(rem);
                 const si = getServiceIcon(rem.service_name);
                 return (
-                  <ChunkyCard key={rem.id} variant={isOverdue ? 'red' : 'default'} style={styles.reminderCard}>
+                  <ChunkyCard key={rem.id} style={styles.reminderCard}>
                     <View style={styles.reminderRow}>
                       <View style={[styles.iconCircle, { backgroundColor: si.bg }]}>
                         <Ionicons name={si.icon as any} size={20} color={si.color} />
                       </View>
                       <View style={styles.reminderInfo}>
                         <Text style={[TYPE.h3, { color: c.text }]}>{rem.service_name}</Text>
-                        <Text style={[TYPE.bodySM, { color: isOverdue ? COLORS.heartRed : c.textSecondary }]}>{label}</Text>
+                        <Text style={[TYPE.bodySM, { color: isOverdue ? Colors.danger : c.textSecondary }]}>{label}</Text>
                       </View>
                       <ChunkyButton title="Done" variant="success" small onPress={() => handleCompleteReminder(rem.id)} />
                     </View>
@@ -302,99 +336,69 @@ export default function ServiceScreen() {
 
           {logs.length === 0 && !loading ? (
             <View style={styles.emptyHistory}>
-              <Text style={{ fontSize: 60 }}>🔧</Text>
-              <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.lg, textAlign: 'center' }]}>
-                No services logged yet
+              <Ionicons name="construct-outline" size={56} color={Colors.primary} />
+              <Text style={styles.emptyTitle}>No services yet!</Text>
+              <Text style={[TYPE.body, { color: COLORS.textMuted, marginTop: SPACING.sm, textAlign: 'center' }]}>
+                Log maintenance to track spending and earn XP.
               </Text>
-              <Text style={[TYPE.body, { color: c.textSecondary, marginTop: SPACING.sm, textAlign: 'center' }]}>
-                Tap + to log your first service
-              </Text>
-              <View style={styles.emptyBtnRow}>
-                <ChunkyButton title="Log First Service" onPress={handleAddLog} style={{ flex: 1 }} />
-                <View style={styles.xpBadge}>
-                  <Text style={styles.xpBadgeText}>+{XP_REWARDS.LOG_SERVICE} XP ⚡</Text>
-                </View>
-              </View>
+              <ChunkyButton
+                title="Log First Service"
+                variant="primary"
+                onPress={handleAddLog}
+                style={{ marginTop: SPACING.xl, width: '100%', backgroundColor: '#1A6FBF', borderRadius: 12, paddingVertical: 14, borderWidth: 0, borderColor: '#1A6FBF' }}
+              />
             </View>
           ) : (
-            <View style={styles.timeline}>
-              {logs.map((log, idx) => {
-                const si = getServiceIcon(log.service_name);
+            <View style={styles.logList}>
+              {logs.map((log) => {
+                const accent = getServiceAccent(log.service_name);
                 const hasNotes = !!log.notes?.trim();
                 const isExpanded = expandedNotes.has(log.id);
                 const notesLong = (log.notes?.length ?? 0) > 100;
+                const metaParts = [
+                  formatDateNice(log.date),
+                  log.mileage_at_service > 0 ? `${formatMileage(log.mileage_at_service, unitSystem)} ${unitLabel}` : null,
+                ].filter(Boolean) as string[];
 
                 return (
-                  <View key={log.id} style={styles.feedItem}>
-                    {/* Timeline connector */}
-                    <View style={styles.feedLeft}>
-                      <View style={[styles.feedDot, { backgroundColor: si.color, borderColor: si.color + '40' }]} />
-                      {idx < logs.length - 1 && (
-                        <View style={[styles.feedLine, { backgroundColor: COLORS.blue + '25' }]} />
+                  <View key={log.id} style={styles.logCard}>
+                    <View style={[styles.accentStrip, { backgroundColor: accent }]} />
+                    <View style={styles.logCardBody}>
+                      <View style={styles.logTopRow}>
+                        <Text style={styles.serviceTitle} numberOfLines={2}>{log.service_name}</Text>
+                        {log.cost != null && log.cost > 0 ? (
+                          <View style={styles.costPill}>
+                            <Text style={styles.costPillText}>${log.cost.toFixed(2)}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.logMeta}>{metaParts.join(' · ')}</Text>
+                      {!!log.shop_name?.trim() && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <Ionicons name="storefront-outline" size={14} color={Colors.textMuted} />
+                          <Text style={styles.logMeta}>{log.shop_name}</Text>
+                        </View>
                       )}
-                    </View>
-
-                    {/* Card */}
-                    <ChunkyCard style={styles.feedCard} noPadding>
-                      <View style={styles.feedCardInner}>
-                        {/* Top row: icon + name + cost */}
-                        <View style={styles.feedTopRow}>
-                          <View style={[styles.iconCircle, { backgroundColor: si.bg }]}>
-                            <Ionicons name={si.icon as any} size={18} color={si.color} />
-                          </View>
-                          <Text style={[TYPE.h3, { color: c.text, flex: 1 }]} numberOfLines={1}>{log.service_name}</Text>
-                          {log.cost != null && log.cost > 0 && (
-                            <Text style={[TYPE.h3, { color: COLORS.blue }]}>${log.cost.toFixed(2)}</Text>
+                      {hasNotes && (
+                        <TouchableOpacity
+                          style={styles.notesBox}
+                          onPress={() => notesLong && toggleNotes(log.id)}
+                          activeOpacity={notesLong ? 0.6 : 1}
+                        >
+                          <Text style={[TYPE.bodySM, { color: c.textSecondary }]} numberOfLines={isExpanded ? undefined : 2}>
+                            {log.notes}
+                          </Text>
+                          {notesLong && !isExpanded && (
+                            <Text style={[TYPE.labelSM, { color: Colors.primary, marginTop: 4 }]}>Read more</Text>
                           )}
-                        </View>
-
-                        {/* Meta rows */}
-                        <View style={styles.metaBlock}>
-                          <View style={styles.metaRow}>
-                            <Text style={styles.metaIcon}>📅</Text>
-                            <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>{formatDateNice(log.date)}</Text>
-                          </View>
-                          {log.mileage_at_service > 0 && (
-                            <View style={styles.metaRow}>
-                              <Text style={styles.metaIcon}>⏱</Text>
-                              <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>
-                                {formatMileage(log.mileage_at_service, unitSystem)} {unitLabel}
-                              </Text>
-                            </View>
-                          )}
-                          {!!log.shop_name?.trim() && (
-                            <View style={styles.metaRow}>
-                              <Text style={styles.metaIcon}>🏪</Text>
-                              <Text style={[TYPE.bodySM, { color: c.textSecondary }]}>{log.shop_name}</Text>
-                            </View>
-                          )}
-                        </View>
-
-                        {/* Notes */}
-                        {hasNotes && (
-                          <TouchableOpacity
-                            style={[styles.notesBox, { backgroundColor: isDark ? '#ffffff08' : '#00000005' }]}
-                            onPress={() => notesLong && toggleNotes(log.id)}
-                            activeOpacity={notesLong ? 0.6 : 1}
-                          >
-                            <Text style={[TYPE.bodySM, { color: c.textSecondary }]} numberOfLines={isExpanded ? undefined : 2}>
-                              {log.notes}
-                            </Text>
-                            {notesLong && !isExpanded && (
-                              <Text style={[TYPE.labelSM, { color: COLORS.blue, marginTop: 4 }]}>Read more</Text>
-                            )}
-                          </TouchableOpacity>
-                        )}
-
-                        {/* Bottom row: XP badge */}
-                        <View style={styles.feedBottomRow}>
-                          <View style={{ flex: 1 }} />
-                          <View style={styles.xpBadge}>
-                            <Text style={styles.xpBadgeText}>+{XP_REWARDS.LOG_SERVICE} XP ⚡</Text>
-                          </View>
+                        </TouchableOpacity>
+                      )}
+                      <View style={{ alignSelf: 'flex-end', marginTop: SPACING.sm }}>
+                        <View style={styles.xpBadge}>
+                          <Text style={styles.xpBadgeText}>+{XP_REWARDS.LOG_SERVICE} XP</Text>
                         </View>
                       </View>
-                    </ChunkyCard>
+                    </View>
                   </View>
                 );
               })}
@@ -459,10 +463,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.xl, paddingTop: SPACING.lg, paddingBottom: SPACING.md,
   },
+  headerTitle: { fontFamily: 'Outfit_700Bold', fontSize: 26, color: Colors.textPrimary },
   addBtn: {
-    width: 44, height: 44, borderRadius: 22,
-    borderWidth: 2.5, borderBottomWidth: 4,
-    justifyContent: 'center', alignItems: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scroll: { flex: 1 },
   content: { paddingHorizontal: SPACING.xl, paddingBottom: SPACING.xxl },
@@ -472,6 +480,8 @@ const styles = StyleSheet.create({
   dashCard: { marginBottom: SPACING.sm },
   dashRow: { flexDirection: 'row', alignItems: 'center' },
   dashCol: { flex: 1, alignItems: 'center', paddingVertical: SPACING.sm },
+  dashStat: { fontFamily: 'Outfit_700Bold', fontSize: 20, color: Colors.textPrimary },
+  dashStatLabel: { fontFamily: 'Outfit_400Regular', fontSize: 12, color: Colors.textMuted, marginTop: 4 },
   dashDivider: { width: 1, height: 40, marginHorizontal: 2 },
 
   // Reminders
@@ -491,25 +501,36 @@ const styles = StyleSheet.create({
 
   // Empty history
   emptyHistory: { alignItems: 'center', paddingVertical: SPACING.xxxl * 2 },
+  emptyTitle: { fontFamily: 'Outfit_800ExtraBold', fontSize: 24, color: COLORS.text, marginTop: SPACING.lg, textAlign: 'center' },
   emptyBtnRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginTop: SPACING.xl, width: '100%' },
 
   // Icon circle
   iconCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
-  // Timeline / Feed
-  timeline: { gap: 0 },
-  feedItem: { flexDirection: 'row', marginBottom: SPACING.lg },
-  feedLeft: { alignItems: 'center', width: 24, paddingTop: SPACING.xl },
-  feedDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 3 },
-  feedLine: { width: 2, flex: 1, marginTop: 4 },
-  feedCard: { flex: 1, marginLeft: SPACING.md },
-  feedCardInner: { padding: SPACING.lg, gap: SPACING.md },
-  feedTopRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
-  metaBlock: { gap: 6, marginLeft: 52 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaIcon: { fontSize: 13, width: 18 },
-  notesBox: { borderRadius: RADIUS.sm, padding: SPACING.md, marginLeft: 52 },
-  feedBottomRow: { flexDirection: 'row', alignItems: 'center', marginLeft: 52 },
+  logList: { gap: SPACING.md },
+  logCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 0.5,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+    ...CARD_SHADOW,
+  },
+  accentStrip: { width: 3, borderTopLeftRadius: 2, borderBottomLeftRadius: 2 },
+  logCardBody: { flex: 1, padding: SPACING.md },
+  logTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: SPACING.md },
+  serviceTitle: { fontFamily: 'Outfit_600SemiBold', fontSize: 15, color: Colors.textPrimary, flex: 1 },
+  logMeta: { fontFamily: 'Outfit_400Regular', fontSize: 13, color: COLORS.textMuted, marginTop: SPACING.xs },
+  costPill: {
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  costPillText: { fontFamily: 'Outfit_600SemiBold', fontSize: 13, color: Colors.primary },
+
+  notesBox: { borderRadius: RADIUS.sm, padding: SPACING.md, marginTop: SPACING.sm, backgroundColor: Colors.surfaceSecondary },
 
   // XP Badges
   xpBadge: { backgroundColor: COLORS.xpGreenLight, borderRadius: RADIUS.pill, paddingHorizontal: 10, paddingVertical: 4 },
@@ -524,9 +545,14 @@ const styles = StyleSheet.create({
   recIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   recBottom: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: SPACING.md },
   recLogBtn: {
-    backgroundColor: COLORS.blue, borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs + 2,
-    borderWidth: 2, borderBottomWidth: 3, borderColor: COLORS.blueDark,
+    backgroundColor: '#EBF3FC',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  recLogText: { ...TYPE.label, color: '#000', fontSize: 12 },
+  recLogText: {
+    fontFamily: 'Outfit_600SemiBold',
+    fontSize: 12,
+    color: '#1A6FBF',
+  },
 });

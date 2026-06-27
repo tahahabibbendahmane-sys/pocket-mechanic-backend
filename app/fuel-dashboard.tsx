@@ -21,7 +21,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useActiveCar } from '@/contexts/ActiveCarContext';
 import { supabase } from '@/lib/supabase';
-import { useTheme } from '@/contexts/ThemeContext';
 
 import { ChunkyCard } from '@/components/ui/ChunkyCard';
 import { COLORS, SPACING, RADIUS, TYPE, getColors } from '@/constants/DesignSystem';
@@ -32,8 +31,7 @@ const { width: screenWidth } = Dimensions.get('window');
 export default function FuelDashboardScreen() {
   const router = useRouter();
   const { activeCar } = useActiveCar();
-  const { isDark } = useTheme();
-  const c = getColors(isDark);
+  const c = getColors();
 
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<FuelLog[]>([]);
@@ -237,11 +235,14 @@ export default function FuelDashboardScreen() {
 
           <View style={[styles.logCard, { backgroundColor: c.surface, borderColor: c.border }]}>
             <View style={styles.logHeader}>
-              <Text style={[TYPE.h3, { color: c.text }]} numberOfLines={1}>
-                ⛽ {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                {' · '}
-                {item.mileage_at_fillup.toLocaleString()} km
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
+                <Ionicons name="water-outline" size={18} color={COLORS.primary} />
+                <Text style={[TYPE.h3, { color: c.text }]} numberOfLines={1}>
+                  {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  {' · '}
+                  {item.mileage_at_fillup.toLocaleString()} km
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => onDelete(item.id)} hitSlop={8} style={{ paddingLeft: 8 }}>
                 <Ionicons name="trash-outline" size={18} color={c.textMuted} />
               </TouchableOpacity>
@@ -281,24 +282,24 @@ export default function FuelDashboardScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={c.background} />
+      <StatusBar barStyle="dark-content" backgroundColor={c.background} />
       <View style={[styles.header, { backgroundColor: c.background }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={26} color={COLORS.blue} />
+          <Ionicons name="chevron-back" size={26} color={COLORS.primary} />
         </TouchableOpacity>
-        <Text style={[TYPE.displayMD, { color: c.text }]}>Fuel Dashboard ⛽</Text>
+        <Text style={[TYPE.displayMD, { color: c.text }]}>Fuel Dashboard</Text>
         <TouchableOpacity
           onPress={() => router.push('/add-fuel')}
           hitSlop={10}
-          style={[styles.addBtn, { backgroundColor: COLORS.blue, borderBottomColor: COLORS.blueDark }]}
+          style={[styles.addBtn, { backgroundColor: COLORS.primary }]}
         >
-          <Ionicons name="add" size={18} color="#000" />
+          <Ionicons name="add" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color={COLORS.blue} />
+          <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: SPACING.sm }]}>
             Loading fuel logs...
           </Text>
@@ -335,13 +336,14 @@ export default function FuelDashboardScreen() {
           </ChunkyCard>
 
           {anomaly && (
-            <ChunkyCard variant="red" style={styles.anomalyCard}>
+            <ChunkyCard style={{ ...styles.anomalyCard, backgroundColor: COLORS.warningLight, borderColor: COLORS.border }}>
               <View style={styles.anomalyRow}>
-                <Text style={[TYPE.h3, { color: '#fff' }]}>⚠️ Consumption Spike Detected</Text>
+                <Ionicons name="warning-outline" size={22} color={COLORS.warning} style={{ marginRight: 8 }} />
+                <Text style={[TYPE.h3, { color: c.text, flex: 1 }]}>Consumption spike detected</Text>
               </View>
               <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: 8 }]}>{anomaly}</Text>
-              <TouchableOpacity onPress={askWrenchyForAnomaly} style={styles.anomalyCTA}>
-                <Text style={[TYPE.bodySM, { color: '#000', fontFamily: 'Outfit_700Bold' }]}>Ask Wrenchy for diagnosis →</Text>
+              <TouchableOpacity onPress={askWrenchyForAnomaly} style={[styles.anomalyCTA, { backgroundColor: COLORS.primary }]}>
+                <Text style={[TYPE.bodySM, { color: '#FFFFFF', fontFamily: 'Outfit_600SemiBold' }]}>Ask Wrenchy for diagnosis</Text>
               </TouchableOpacity>
             </ChunkyCard>
           )}
@@ -374,7 +376,7 @@ export default function FuelDashboardScreen() {
 
             {logsDesc.length === 0 ? (
               <View style={styles.emptyState}>
-                <Text style={{ fontSize: 48 }}>⛽</Text>
+                <Ionicons name="water-outline" size={48} color={COLORS.primary} />
                 <Text style={[TYPE.h2, { color: c.text, marginTop: SPACING.sm }]}>No fuel logs yet</Text>
                 <Text style={[TYPE.bodySM, { color: c.textSecondary, marginTop: SPACING.xs, textAlign: 'center' }]}>
                   Tap + to log your first fill-up.
@@ -411,8 +413,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 2.5,
-    borderBottomWidth: 4,
+    borderWidth: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -422,11 +423,10 @@ const styles = StyleSheet.create({
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: SPACING.md },
   statsCell: { width: '48%', alignItems: 'center' },
   anomalyCard: { marginBottom: SPACING.lg, padding: 16 },
-  anomalyRow: { alignItems: 'center' },
+  anomalyRow: { flexDirection: 'row', alignItems: 'center' },
   anomalyCTA: {
     marginTop: 12,
-    backgroundColor: COLORS.blue,
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
     alignSelf: 'flex-start',
